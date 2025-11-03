@@ -1,5 +1,5 @@
 const fs = require('fs').promises;
-const { createBotLogger } = require('../utils/consoleLogger');
+const { createBotLogger } = require('../../utils/consoleLogger');
 
 const logger = createBotLogger('Stalker');
 const path = require('path');

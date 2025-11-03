@@ -3,7 +3,7 @@
  * Dekoduje kody buildów z sio-tools.vercel.app
  */
 
-const { createBotLogger } = require('../utils/consoleLogger');
+const { createBotLogger } = require('../../utils/consoleLogger');
 
 class SurvivorService {
     constructor(config, logger) {

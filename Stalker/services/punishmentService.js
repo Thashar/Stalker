@@ -1,6 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 
-const { createBotLogger } = require('../utils/consoleLogger');
+const { createBotLogger } = require('../../utils/consoleLogger');
 
 const logger = createBotLogger('Stalker');
 

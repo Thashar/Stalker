@@ -1,5 +1,5 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { createBotLogger } = require('../utils/consoleLogger');
+const { createBotLogger } = require('../../utils/consoleLogger');
 const fs = require('fs').promises;
 const path = require('path');
 const https = require('https');

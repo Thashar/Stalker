@@ -1,0 +1,38 @@
+{
+  "name": "starvoidemperors-bots",
+  "version": "1.0.0",
+  "description": "StarVoidEmperors Discord Bots Ecosystem",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "local": "node index.js --local",
+    "dev": "node index.js",
+    "stalker": "cd Stalker && node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Thashar/Stalker.git"
+  },
+  "keywords": ["discord", "bot", "survivor.io", "stalker"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Thashar/Stalker/issues"
+  },
+  "homepage": "https://github.com/Thashar/Stalker#readme",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "discord.js": "^14.21.0",
+    "dotenv": "^17.2.0",
+    "https-proxy-agent": "^7.0.0",
+    "lz-string": "^1.5.0",
+    "lzma": "^2.3.2",
+    "node-cron": "^3.0.3",
+    "pako": "^2.1.0",
+    "sharp": "^0.34.2",
+    "tesseract.js": "^6.0.1"
+  }
+}

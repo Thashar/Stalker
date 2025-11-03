@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { createBotLogger } = require('../utils/consoleLogger');
+const { createBotLogger } = require('../../utils/consoleLogger');
 
 const logger = createBotLogger('Stalker');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });

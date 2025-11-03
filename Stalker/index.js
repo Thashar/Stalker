@@ -12,7 +12,7 @@ const ReminderService = require('./services/reminderService');
 const VacationService = require('./services/vacationService');
 const SurvivorService = require('./services/survivorService');
 const MessageCleanupService = require('./services/messageCleanupService');
-const { createBotLogger } = require('./utils/consoleLogger');
+const { createBotLogger } = require('../utils/consoleLogger');
 
 const logger = createBotLogger('Stalker');
 

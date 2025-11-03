@@ -10,6 +10,8 @@ package-lock.json
 # Database files
 data/
 *.json.backup
+shared_data/
+!shared_data/.gitkeep
 
 # Logs
 logs/

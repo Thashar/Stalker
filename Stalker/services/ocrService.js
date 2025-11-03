@@ -3,7 +3,7 @@ const sharp = require('sharp');
 const fs = require('fs').promises;
 const path = require('path');
 const { calculateNameSimilarity } = require('../utils/helpers');
-const { createBotLogger } = require('../utils/consoleLogger');
+const { createBotLogger } = require('../../utils/consoleLogger');
 const { saveProcessedImage } = require('../utils/ocrFileUtils');
 
 const logger = createBotLogger('Stalker');
