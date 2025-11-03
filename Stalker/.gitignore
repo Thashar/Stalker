@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# Node modules
+node_modules/
+
+# Database files
+data/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+temp/
+*.tmp
+
+# OCR processed images
+processed_ocr/
+
+# OS files
+.DS_Store
+Thumbs.db

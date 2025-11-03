@@ -1,0 +1,41 @@
+# Environment variables
+.env
+*.env
+!.env.example
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Database files
+data/
+*.json.backup
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Temporary files
+temp/
+*.tmp
+*.temp
+
+# OCR processed images
+processed_ocr/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build files
+dist/
+build/
