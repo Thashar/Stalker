@@ -53,8 +53,8 @@ async function handleInteraction(interaction, sharedState, config) {
 async function handleSlashCommand(interaction, sharedState) {
     const { config, databaseService, ocrService, punishmentService, reminderService, survivorService, phaseService } = sharedState;
 
-    // Check permissions for all commands except /decode and /wyniki
-    const publicCommands = ['decode', 'wyniki'];
+    // Check permissions for all commands except /decode and /results
+    const publicCommands = ['decode', 'results'];
     if (!publicCommands.includes(interaction.commandName)) {
         const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
         if (!hasPermission(interaction.member, serverConfig.allowedPunishRoles)) {
@@ -85,19 +85,19 @@ async function handleSlashCommand(interaction, sharedState) {
         case 'decode':
             await handleDecodeCommand(interaction, sharedState);
             break;
-        case 'faza1':
+        case 'phase1':
             await handlePhase1Command(interaction, sharedState);
             break;
-        case 'wyniki':
+        case 'results':
             await handleResultsCommand(interaction, sharedState);
             break;
-        case 'modyfikuj':
-            await handleModyfikujCommand(interaction, sharedState);
+        case 'modify':
+            await handleModifyCommand(interaction, sharedState);
             break;
-        case 'dodaj':
-            await handleDodajCommand(interaction, sharedState);
+        case 'add':
+            await handleAddCommand(interaction, sharedState);
             break;
-        case 'faza2':
+        case 'phase2':
             await handlePhase2Command(interaction, sharedState);
             break;
         default:
@@ -440,24 +440,24 @@ async function handleSelectMenu(interaction, config, reminderService, sharedStat
             logger.error('[REMINDER] ❌ Reminder sending error:', error);
             await interaction.editReply({ content: messages.errors.unknownError });
         }
-    } else if (interaction.customId === 'wyniki_select_clan') {
+    } else if (interaction.customId === 'results_select_clan') {
         await handleResultsClanSelect(interaction, sharedState);
-    } else if (interaction.customId === 'wyniki_select_week') {
+    } else if (interaction.customId === 'results_select_week') {
         await handleResultsWeekSelect(interaction, sharedState);
-    } else if (interaction.customId.startsWith('modyfikuj_select_clan|')) {
-        await handleModyfikujClanSelect(interaction, sharedState);
-    } else if (interaction.customId.startsWith('modyfikuj_select_round|')) {
-        await handleModyfikujRoundSelect(interaction, sharedState);
-    } else if (interaction.customId.startsWith('modyfikuj_select_week_')) {
-        await handleModyfikujWeekSelect(interaction, sharedState);
-    } else if (interaction.customId.startsWith('modyfikuj_select_player_')) {
-        await handleModyfikujPlayerSelect(interaction, sharedState);
-    } else if (interaction.customId.startsWith('dodaj_select_week|')) {
-        await handleDodajWeekSelect(interaction, sharedState);
-    } else if (interaction.customId.startsWith('dodaj_select_round|')) {
-        await handleDodajRoundSelect(interaction, sharedState);
-    } else if (interaction.customId.startsWith('dodaj_select_user|')) {
-        await handleDodajUserSelect(interaction, sharedState);
+    } else if (interaction.customId.startsWith('modify_select_clan|')) {
+        await handleModifyClanSelect(interaction, sharedState);
+    } else if (interaction.customId.startsWith('modify_select_round|')) {
+        await handleModifyRoundSelect(interaction, sharedState);
+    } else if (interaction.customId.startsWith('modify_select_week_')) {
+        await handleModifyWeekSelect(interaction, sharedState);
+    } else if (interaction.customId.startsWith('modify_select_player_')) {
+        await handleModifyPlayerSelect(interaction, sharedState);
+    } else if (interaction.customId.startsWith('add_select_week|')) {
+        await handleAddWeekSelect(interaction, sharedState);
+    } else if (interaction.customId.startsWith('add_select_round|')) {
+        await handleAddRoundSelect(interaction, sharedState);
+    } else if (interaction.customId.startsWith('add_select_user|')) {
+        await handleAddUserSelect(interaction, sharedState);
     }
 }
 
@@ -868,17 +868,17 @@ async function handleButton(interaction, sharedState) {
     } else if (interaction.customId === 'phase1_confirm_save' || interaction.customId === 'phase1_cancel_save') {
         // Obsługa przycisków finalnego potwierdzenia zapisu
         await handlePhase1FinalConfirmButton(interaction, sharedState);
-    } else if (interaction.customId.startsWith('modyfikuj_confirm_') || interaction.customId === 'modyfikuj_cancel') {
-        await handleModyfikujConfirmButton(interaction, sharedState);
-    } else if (interaction.customId.startsWith('modyfikuj_page_prev|') || interaction.customId.startsWith('modyfikuj_page_next|')) {
-        await handleModyfikujPaginationButton(interaction, sharedState);
-    } else if (interaction.customId.startsWith('modyfikuj_week_prev|') || interaction.customId.startsWith('modyfikuj_week_next|')) {
-        await handleModyfikujWeekPaginationButton(interaction, sharedState);
-    } else if (interaction.customId.startsWith('wyniki_weeks_prev|') || interaction.customId.startsWith('wyniki_weeks_next|')) {
+    } else if (interaction.customId.startsWith('modify_confirm_') || interaction.customId === 'modify_cancel') {
+        await handleModifyConfirmButton(interaction, sharedState);
+    } else if (interaction.customId.startsWith('modify_page_prev|') || interaction.customId.startsWith('modify_page_next|')) {
+        await handleModifyPaginationButton(interaction, sharedState);
+    } else if (interaction.customId.startsWith('modify_week_prev|') || interaction.customId.startsWith('modify_week_next|')) {
+        await handleModifyWeekPaginationButton(interaction, sharedState);
+    } else if (interaction.customId.startsWith('results_weeks_prev|') || interaction.customId.startsWith('results_weeks_next|')) {
         await handleResultsWeekPaginationButton(interaction, sharedState);
-    } else if (interaction.customId.startsWith('wyniki_phase2_view|')) {
+    } else if (interaction.customId.startsWith('results_phase2_view|')) {
         await handleResultsPhase2ViewButton(interaction, sharedState);
-    } else if (interaction.customId.startsWith('wyniki_view|')) {
+    } else if (interaction.customId.startsWith('results_view|')) {
         await handleResultsViewButton(interaction, sharedState);
     } else if (interaction.customId.startsWith('phase2_overwrite_')) {
         await handlePhase2OverwriteButton(interaction, sharedState);
@@ -1010,25 +1010,25 @@ async function registerSlashCommands(client) {
     const commands = [
         new SlashCommandBuilder()
             .setName('punish')
-            .setDescription('Analizuj zdjęcie i znajdź players z wynikiem 0')
+            .setDescription('Analyze image and find players with 0 score')
             .addAttachmentOption(option =>
                 option.setName('image')
                     .setDescription('Image to analyze')
                     .setRequired(true)
             ),
-        
+
         new SlashCommandBuilder()
             .setName('remind')
-            .setDescription('Wyślij przypomnienie o bossie for players z wynikiem 0')
+            .setDescription('Send boss reminder for players with 0 score')
             .addAttachmentOption(option =>
                 option.setName('image')
                     .setDescription('Image to analyze')
                     .setRequired(true)
             ),
-        
+
         new SlashCommandBuilder()
             .setName('punishment')
-            .setDescription('Wyświetl ranking punishment points')
+            .setDescription('Display punishment points ranking')
             .addStringOption(option =>
                 option.setName('category')
                     .setDescription('Ranking category')
@@ -1040,7 +1040,7 @@ async function registerSlashCommands(client) {
                         { name: '🔥Polski Squad🔥', value: 'main' }
                     )
             ),
-        
+
         new SlashCommandBuilder()
             .setName('points')
             .setDescription('Add or remove points from user')
@@ -1051,12 +1051,12 @@ async function registerSlashCommands(client) {
             )
             .addIntegerOption(option =>
                 option.setName('amount')
-                    .setDescription('Liczba points (dodatnia = dodaj, ujemna = odejmij, puste = usuń użytkownika)')
+                    .setDescription('Number of points (positive = add, negative = remove, empty = remove user)')
                     .setRequired(false)
                     .setMinValue(-20)
                     .setMaxValue(20)
             ),
-        
+
         new SlashCommandBuilder()
             .setName('debug-roles')
             .setDescription('Debug server roles')
@@ -1071,7 +1071,7 @@ async function registerSlashCommands(client) {
                         { name: '🔥Polski Squad🔥', value: 'main' }
                     )
             ),
-        
+
         new SlashCommandBuilder()
             .setName('ocr-debug')
             .setDescription('Toggle detailed OCR logging')
@@ -1083,21 +1083,21 @@ async function registerSlashCommands(client) {
 
         new SlashCommandBuilder()
             .setName('decode')
-            .setDescription('Dekoduj kod buildu Survivor.io i wyświetl dane o ekwipunku'),
+            .setDescription('Decode Survivor.io build code and display equipment data'),
 
         new SlashCommandBuilder()
-            .setName('faza1')
-            .setDescription('Zbierz i zapisz wyniki wszystkich players for Fazy 1'),
+            .setName('phase1')
+            .setDescription('Collect and save results of all players for Phase 1'),
 
         new SlashCommandBuilder()
-            .setName('wyniki')
-            .setDescription('Wyświetl wyniki for wszystkich faz'),
+            .setName('results')
+            .setDescription('Display results for all phases'),
 
         new SlashCommandBuilder()
-            .setName('modyfikuj')
+            .setName('modify')
             .setDescription('Modify player result')
             .addStringOption(option =>
-                option.setName('faza')
+                option.setName('phase')
                     .setDescription('Select phase')
                     .setRequired(true)
                     .addChoices(
@@ -1107,10 +1107,10 @@ async function registerSlashCommands(client) {
             ),
 
         new SlashCommandBuilder()
-            .setName('dodaj')
+            .setName('add')
             .setDescription('Add new player to existing results')
             .addStringOption(option =>
-                option.setName('faza')
+                option.setName('phase')
                     .setDescription('Select phase')
                     .setRequired(true)
                     .addChoices(
@@ -1120,8 +1120,8 @@ async function registerSlashCommands(client) {
             ),
 
         new SlashCommandBuilder()
-            .setName('faza2')
-            .setDescription('Zbierz i zapisz wyniki wszystkich players for Fazy 2 (3 rundy)')
+            .setName('phase2')
+            .setDescription('Collect and save results of all players for Phase 2 (3 rounds)')
     ];
 
     try {
@@ -1619,11 +1619,11 @@ async function handleDecodeCommand(interaction, sharedState) {
 async function handleModalSubmit(interaction, sharedState) {
     if (interaction.customId === 'decode_modal') {
         await handleDecodeModalSubmit(interaction, sharedState);
-    // Modal wyniki_attachments_modal was removed - now we use file upload directly
-    } else if (interaction.customId.startsWith('modyfikuj_modal_')) {
-        await handleModyfikujModalSubmit(interaction, sharedState);
-    } else if (interaction.customId.startsWith('dodaj_modal|')) {
-        await handleDodajModalSubmit(interaction, sharedState);
+    // Modal results_attachments_modal was removed - now we use file upload directly
+    } else if (interaction.customId.startsWith('modify_modal_')) {
+        await handleModifyModalSubmit(interaction, sharedState);
+    } else if (interaction.customId.startsWith('add_modal|')) {
+        await handleAddModalSubmit(interaction, sharedState);
     }
 }
 
@@ -1747,13 +1747,13 @@ async function handlePhase1Command(interaction, sharedState) {
         logger.info(`[PHASE1] ✅ Session created, waiting for images from ${interaction.user.tag}`);
 
     } catch (error) {
-        logger.error('[PHASE1] ❌ Błąd komendy /faza1:', error);
+        logger.error('[PHASE1] ❌ Błąd komendy /phase1:', error);
 
         // Unlock in case of error
         phaseService.clearActiveProcessing(interaction.guild.id);
 
         await interaction.editReply({
-            content: '❌ An error occurred podczas inicjalizacji komendy /faza1.'
+            content: '❌ An error occurred podczas inicjalizacji komendy /phase1.'
         });
     }
 }
@@ -2307,7 +2307,7 @@ async function handlePhase2Command(interaction, sharedState) {
         logger.info(`[PHASE2] ✅ Sesja utworzona, czekam na zdjęcia z rundy 1/3 od ${interaction.user.tag}`);
 
     } catch (error) {
-        logger.info(`[PHASE2] ❌ Błąd komendy /faza2:`, error);
+        logger.info(`[PHASE2] ❌ Błąd komendy /phase2:`, error);
 
         // Unlock in case of error
         phaseService.clearActiveProcessing(interaction.guild.id);
@@ -2784,9 +2784,9 @@ async function showPhase2RoundSummary(interaction, session, phaseService) {
     }
 }
 
-// =============== DODAJ HANDLERS ===============
+// =============== ADD HANDLERS ===============
 
-async function handleDodajWeekSelect(interaction, sharedState) {
+async function handleAddWeekSelect(interaction, sharedState) {
     const { config } = sharedState;
     const [prefix, phase, clan] = interaction.customId.split('|');
     const selectedWeek = interaction.values[0];
@@ -2809,7 +2809,7 @@ async function handleDodajWeekSelect(interaction, sharedState) {
         ];
 
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`dodaj_select_round|${phase}|${clan}|${selectedWeek}`)
+            .setCustomId(`add_select_round|${phase}|${clan}|${selectedWeek}`)
             .setPlaceholder('Select round')
             .addOptions(roundOptions);
 
@@ -2831,7 +2831,7 @@ async function handleDodajWeekSelect(interaction, sharedState) {
     }
 }
 
-async function handleDodajRoundSelect(interaction, sharedState) {
+async function handleAddRoundSelect(interaction, sharedState) {
     const [prefix, phase, clan, weekNumber] = interaction.customId.split('|');
     const selectedRound = interaction.values[0];
 
@@ -2888,7 +2888,7 @@ async function showUserSelectMenu(interaction, sharedState, phase, clan, weekNum
             }
         }
     } catch (error) {
-        logger.error('[DODAJ] Błąd pobierania istniejących players:', error);
+        logger.error('[ADD] Błąd pobierania istniejących players:', error);
     }
 
     // Pobierz wszystkich członków serwera z odpowiednią rolą
@@ -2920,7 +2920,7 @@ async function showUserSelectMenu(interaction, sharedState, phase, clan, weekNum
     );
 
     const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId(`dodaj_select_user|${phase}|${clan}|${weekNumber}|${round}`)
+        .setCustomId(`add_select_user|${phase}|${clan}|${weekNumber}|${round}`)
         .setPlaceholder('Select user')
         .addOptions(userOptions);
 
@@ -2944,7 +2944,7 @@ async function showUserSelectMenu(interaction, sharedState, phase, clan, weekNum
     });
 }
 
-async function handleDodajUserSelect(interaction, sharedState) {
+async function handleAddUserSelect(interaction, sharedState) {
     const [prefix, phase, clan, weekNumber, round] = interaction.customId.split('|');
     const selectedUserId = interaction.values[0];
 
@@ -2962,7 +2962,7 @@ async function handleDodajUserSelect(interaction, sharedState) {
 
     // Pokaż modal tylko z polem na wynik
     const modal = new ModalBuilder()
-        .setCustomId(`dodaj_modal|${phase}|${clan}|${weekNumber}|${round}|${selectedUserId}`)
+        .setCustomId(`add_modal|${phase}|${clan}|${weekNumber}|${round}|${selectedUserId}`)
         .setTitle(`Dodaj wynik for ${selectedMember.displayName}`);
 
     const scoreInput = new TextInputBuilder()
@@ -2978,7 +2978,7 @@ async function handleDodajUserSelect(interaction, sharedState) {
     await interaction.showModal(modal);
 }
 
-async function handleDodajCommand(interaction, sharedState) {
+async function handleAddCommand(interaction, sharedState) {
     const { config, databaseService } = sharedState;
 
     // Check permissions (admin or allowedPunishRoles)
@@ -3012,7 +3012,7 @@ async function handleDodajCommand(interaction, sharedState) {
         return;
     }
 
-    const selectedPhase = interaction.options.getString('faza');
+    const selectedPhase = interaction.options.getString('phase');
 
     try {
         const clanName = config.roleDisplayNames[userClan];
@@ -3023,7 +3023,7 @@ async function handleDodajCommand(interaction, sharedState) {
 
         if (weeksForClan.length === 0) {
             await interaction.reply({
-                content: `❌ Brak zapisanych wyników for clan ${clanName}. Najpierw użyj \`/faza1\` lub \`/faza2\` aby dodać wyniki.`,
+                content: `❌ Brak zapisanych wyników for clan ${clanName}. Najpierw użyj \`/phase1\` lub \`/phase2\` aby dodać wyniki.`,
                 flags: MessageFlags.Ephemeral
             });
             return;
@@ -3038,7 +3038,7 @@ async function handleDodajCommand(interaction, sharedState) {
         });
 
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`dodaj_select_week|${selectedPhase}|${userClan}`)
+            .setCustomId(`add_select_week|${selectedPhase}|${userClan}`)
             .setPlaceholder('Select week')
             .addOptions(weekOptions);
 
@@ -3059,7 +3059,7 @@ async function handleDodajCommand(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[DODAJ] ❌ Błąd komendy /dodaj:', error);
+        logger.error('[ADD] ❌ Błąd komendy /add:', error);
         await interaction.reply({
             content: '❌ An error occurred podczas inicjalizacji komendy.',
             flags: MessageFlags.Ephemeral
@@ -3067,7 +3067,7 @@ async function handleDodajCommand(interaction, sharedState) {
     }
 }
 
-async function handleDodajModalSubmit(interaction, sharedState) {
+async function handleAddModalSubmit(interaction, sharedState) {
     const { config, databaseService } = sharedState;
     const customIdParts = interaction.customId.split('|');
     const [prefix, phase, clan, weekNumber, round, userId] = customIdParts;
@@ -3236,16 +3236,16 @@ async function handleDodajModalSubmit(interaction, sharedState) {
         }
 
     } catch (error) {
-        logger.error('[DODAJ] ❌ Błąd dodawania gracza:', error);
+        logger.error('[ADD] ❌ Błąd dodawania gracza:', error);
         await interaction.editReply({
             content: '❌ An error occurred podczas dodawania gracza.'
         });
     }
 }
 
-// =============== MODYFIKUJ HANDLERS ===============
+// =============== MODIFY HANDLERS ===============
 
-async function handleModyfikujCommand(interaction, sharedState) {
+async function handleModifyCommand(interaction, sharedState) {
     const { config, databaseService } = sharedState;
 
     // Check permissions (admin or allowedPunishRoles)
@@ -3279,16 +3279,16 @@ async function handleModyfikujCommand(interaction, sharedState) {
         return;
     }
 
-    const selectedPhase = interaction.options.getString('faza');
+    const selectedPhase = interaction.options.getString('phase');
 
     try {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         // Pomiń wybór klanu i przejdź bezpośrednio do wyboru tygodnia
-        await showModyfikujWeekSelection(interaction, databaseService, config, userClan, selectedPhase, null, 0);
+        await showModifyWeekSelection(interaction, databaseService, config, userClan, selectedPhase, null, 0);
 
     } catch (error) {
-        logger.error('[MODYFIKUJ] ❌ Błąd komendy /modyfikuj:', error);
+        logger.error('[MODIFY] ❌ Błąd komendy /modify:', error);
         await interaction.editReply({
             content: '❌ An error occurred podczas uruchamiania komendy.',
             flags: MessageFlags.Ephemeral
@@ -3296,7 +3296,7 @@ async function handleModyfikujCommand(interaction, sharedState) {
     }
 }
 
-async function showModyfikujWeekSelection(interaction, databaseService, config, userClan, selectedPhase, selectedRound = null, page = 0) {
+async function showModifyWeekSelection(interaction, databaseService, config, userClan, selectedPhase, selectedRound = null, page = 0) {
     const clanName = config.roleDisplayNames[userClan];
 
     // Pobierz dostępne tygodnie for wybranego klanu i fazy
@@ -3328,7 +3328,7 @@ async function showModyfikujWeekSelection(interaction, databaseService, config, 
     // Utwórz select menu z tygodniami
     const customIdSuffix = selectedRound ? `${selectedPhase}|${selectedRound}` : selectedPhase;
     const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId(`modyfikuj_select_week_${customIdSuffix}`)
+        .setCustomId(`modify_select_week_${customIdSuffix}`)
         .setPlaceholder('Select week')
         .addOptions(
             weeksOnPage.map(week => {
@@ -3353,17 +3353,17 @@ async function showModyfikujWeekSelection(interaction, databaseService, config, 
         const paginationRow = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`modyfikuj_week_prev|${customIdSuffix}|${userClan}|${currentPage}`)
+                    .setCustomId(`modify_week_prev|${customIdSuffix}|${userClan}|${currentPage}`)
                     .setLabel('◀ Poprzednia')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(currentPage === 0),
                 new ButtonBuilder()
-                    .setCustomId(`modyfikuj_week_info|${customIdSuffix}|${userClan}|${currentPage}`)
+                    .setCustomId(`modify_week_info|${customIdSuffix}|${userClan}|${currentPage}`)
                     .setLabel(`Page ${currentPage + 1}/${totalPages}`)
                     .setStyle(ButtonStyle.Secondary)
                     .setDisabled(true),
                 new ButtonBuilder()
-                    .setCustomId(`modyfikuj_week_next|${customIdSuffix}|${userClan}|${currentPage}`)
+                    .setCustomId(`modify_week_next|${customIdSuffix}|${userClan}|${currentPage}`)
                     .setLabel('Następna ▶')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(currentPage === totalPages - 1)
@@ -3387,22 +3387,22 @@ async function showModyfikujWeekSelection(interaction, databaseService, config, 
     });
 }
 
-async function handleModyfikujClanSelect(interaction, sharedState) {
+async function handleModifyClanSelect(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
     await interaction.deferUpdate();
 
     try {
-        // Format: modyfikuj_select_clan|phase1 lub modyfikuj_select_clan|phase2
+        // Format: modify_select_clan|phase1 lub modify_select_clan|phase2
         const parts = interaction.customId.split('|');
         const selectedPhase = parts[1];
         const selectedClan = interaction.values[0];
 
         // Step 2: Pokaż wybór tygodnia
-        await showModyfikujWeekSelection(interaction, databaseService, config, selectedClan, selectedPhase, null, 0);
+        await showModifyWeekSelection(interaction, databaseService, config, selectedClan, selectedPhase, null, 0);
 
     } catch (error) {
-        logger.error('[MODYFIKUJ] ❌ Błąd wyboru klanu:', error);
+        logger.error('[MODIFY] ❌ Błąd wyboru klanu:', error);
         await interaction.editReply({
             content: '❌ An error occurred podczas wyboru klanu.',
             components: []
@@ -3410,13 +3410,13 @@ async function handleModyfikujClanSelect(interaction, sharedState) {
     }
 }
 
-async function handleModyfikujRoundSelect(interaction, sharedState) {
+async function handleModifyRoundSelect(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
     await interaction.deferUpdate();
 
     try {
-        // Format: modyfikuj_select_round|clan|weekNumber-year|phase
+        // Format: modify_select_round|clan|weekNumber-year|phase
         const parts = interaction.customId.split('|');
         const clan = parts[1];
         const weekKey = parts[2];
@@ -3475,7 +3475,7 @@ async function handleModyfikujRoundSelect(interaction, sharedState) {
         // Utwórz select menu z graczami
         const customIdSuffix = `${selectedPhase}|${selectedRound}`;
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`modyfikuj_select_player_${customIdSuffix}`)
+            .setCustomId(`modify_select_player_${customIdSuffix}`)
             .setPlaceholder('Select player')
             .addOptions(
                 playersOnPage.map(player => {
@@ -3492,17 +3492,17 @@ async function handleModyfikujRoundSelect(interaction, sharedState) {
             const paginationRow = new ActionRowBuilder()
                 .addComponents(
                     new ButtonBuilder()
-                        .setCustomId(`modyfikuj_page_prev|${clan}|${weekNumber}-${year}|${currentPage}|${customIdSuffix}`)
+                        .setCustomId(`modify_page_prev|${clan}|${weekNumber}-${year}|${currentPage}|${customIdSuffix}`)
                         .setLabel('◀ Poprzednia')
                         .setStyle(ButtonStyle.Primary)
                         .setDisabled(true),
                     new ButtonBuilder()
-                        .setCustomId(`modyfikuj_page_info|${clan}|${weekNumber}-${year}|${currentPage}|${customIdSuffix}`)
+                        .setCustomId(`modify_page_info|${clan}|${weekNumber}-${year}|${currentPage}|${customIdSuffix}`)
                         .setLabel(`Page 1/${totalPages}`)
                         .setStyle(ButtonStyle.Secondary)
                         .setDisabled(true),
                     new ButtonBuilder()
-                        .setCustomId(`modyfikuj_page_next|${clan}|${weekNumber}-${year}|${currentPage}|${customIdSuffix}`)
+                        .setCustomId(`modify_page_next|${clan}|${weekNumber}-${year}|${currentPage}|${customIdSuffix}`)
                         .setLabel('Następna ▶')
                         .setStyle(ButtonStyle.Primary)
                         .setDisabled(totalPages === 1)
@@ -3523,7 +3523,7 @@ async function handleModyfikujRoundSelect(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[MODYFIKUJ] ❌ Błąd wyboru rundy:', error);
+        logger.error('[MODIFY] ❌ Błąd wyboru rundy:', error);
         await interaction.editReply({
             content: '❌ An error occurred podczas wyboru rundy.',
             components: []
@@ -3531,14 +3531,14 @@ async function handleModyfikujRoundSelect(interaction, sharedState) {
     }
 }
 
-async function handleModyfikujWeekSelect(interaction, sharedState, page = 0) {
+async function handleModifyWeekSelect(interaction, sharedState, page = 0) {
     const { databaseService, config } = sharedState;
 
     await interaction.deferUpdate();
 
     try {
-        // Parsuj customId: modyfikuj_select_week_phase1 lub modyfikuj_select_week_phase2
-        const customIdParts = interaction.customId.replace('modyfikuj_select_week_', '').split('|');
+        // Parsuj customId: modify_select_week_phase1 lub modify_select_week_phase2
+        const customIdParts = interaction.customId.replace('modify_select_week_', '').split('|');
         const selectedPhase = customIdParts[0]; // phase1 lub phase2
 
         const selectedValue = interaction.values[0];
@@ -3562,7 +3562,7 @@ async function handleModyfikujWeekSelect(interaction, sharedState, page = 0) {
             ];
 
             const selectMenu = new StringSelectMenuBuilder()
-                .setCustomId(`modyfikuj_select_round|${clan}|${weekNumber}-${year}|${selectedPhase}`)
+                .setCustomId(`modify_select_round|${clan}|${weekNumber}-${year}|${selectedPhase}`)
                 .setPlaceholder('Select round')
                 .addOptions(roundOptions);
 
@@ -3615,7 +3615,7 @@ async function handleModyfikujWeekSelect(interaction, sharedState, page = 0) {
 
         // Utwórz select menu z graczami
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`modyfikuj_select_player_${selectedPhase}`)
+            .setCustomId(`modify_select_player_${selectedPhase}`)
             .setPlaceholder('Select player')
             .addOptions(
                 playersOnPage.map(player => {
@@ -3632,17 +3632,17 @@ async function handleModyfikujWeekSelect(interaction, sharedState, page = 0) {
             const paginationRow = new ActionRowBuilder()
                 .addComponents(
                     new ButtonBuilder()
-                        .setCustomId(`modyfikuj_page_prev|${clan}|${weekNumber}-${year}|${currentPage}|${selectedPhase}`)
+                        .setCustomId(`modify_page_prev|${clan}|${weekNumber}-${year}|${currentPage}|${selectedPhase}`)
                         .setLabel('◀ Poprzednia')
                         .setStyle(ButtonStyle.Primary)
                         .setDisabled(currentPage === 0),
                     new ButtonBuilder()
-                        .setCustomId(`modyfikuj_page_info|${clan}|${weekNumber}-${year}|${currentPage}|${selectedPhase}`)
+                        .setCustomId(`modify_page_info|${clan}|${weekNumber}-${year}|${currentPage}|${selectedPhase}`)
                         .setLabel(`Page ${currentPage + 1}/${totalPages}`)
                         .setStyle(ButtonStyle.Secondary)
                         .setDisabled(true),
                     new ButtonBuilder()
-                        .setCustomId(`modyfikuj_page_next|${clan}|${weekNumber}-${year}|${currentPage}|${selectedPhase}`)
+                        .setCustomId(`modify_page_next|${clan}|${weekNumber}-${year}|${currentPage}|${selectedPhase}`)
                         .setLabel('Następna ▶')
                         .setStyle(ButtonStyle.Primary)
                         .setDisabled(currentPage === totalPages - 1)
@@ -3665,7 +3665,7 @@ async function handleModyfikujWeekSelect(interaction, sharedState, page = 0) {
         });
 
     } catch (error) {
-        logger.error('[MODYFIKUJ] ❌ Błąd wyboru tygodnia:', error);
+        logger.error('[MODIFY] ❌ Błąd wyboru tygodnia:', error);
         await interaction.editReply({
             content: '❌ An error occurred podczas wyboru tygodnia.',
             components: []
@@ -3673,12 +3673,12 @@ async function handleModyfikujWeekSelect(interaction, sharedState, page = 0) {
     }
 }
 
-async function handleModyfikujPlayerSelect(interaction, sharedState) {
+async function handleModifyPlayerSelect(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
     try {
-        // Parsuj customId: modyfikuj_select_player_phase1 lub modyfikuj_select_player_phase2|round1
-        const customIdParts = interaction.customId.replace('modyfikuj_select_player_', '').split('|');
+        // Parsuj customId: modify_select_player_phase1 lub modify_select_player_phase2|round1
+        const customIdParts = interaction.customId.replace('modify_select_player_', '').split('|');
         const selectedPhase = customIdParts[0];
         const selectedRound = customIdParts[1] || null;
 
@@ -3686,7 +3686,7 @@ async function handleModyfikujPlayerSelect(interaction, sharedState) {
         const [clan, weekKey, userId] = selectedValue.split('|');
         const [weekNumber, year] = weekKey.split('-').map(Number);
 
-        logger.info(`[MODYFIKUJ] Wybrano gracza: phase=${selectedPhase}, round=${selectedRound}, clan=${clan}, week=${weekNumber}/${year}, userId=${userId}`);
+        logger.info(`[MODIFY] Wybrano gracza: phase=${selectedPhase}, round=${selectedRound}, clan=${clan}, week=${weekNumber}/${year}, userId=${userId}`);
 
         // Pobierz dane gracza
         let weekData;
@@ -3696,7 +3696,7 @@ async function handleModyfikujPlayerSelect(interaction, sharedState) {
             weekData = await databaseService.getPhase2Results(interaction.guild.id, weekNumber, year, clan);
 
             if (!weekData) {
-                logger.error(`[MODYFIKUJ] Brak weekData for Phase2: guild=${interaction.guild.id}, week=${weekNumber}, year=${year}, clan=${clan}`);
+                logger.error(`[MODIFY] Brak weekData for Phase2: guild=${interaction.guild.id}, week=${weekNumber}, year=${year}, clan=${clan}`);
                 await interaction.reply({
                     content: '❌ Not found danych for wybranego tygodnia.',
                     flags: MessageFlags.Ephemeral
@@ -3705,26 +3705,26 @@ async function handleModyfikujPlayerSelect(interaction, sharedState) {
             }
 
             // Znajdź gracza w odpowiedniej rundzie (tylko round1, round2, round3)
-            logger.info(`[MODYFIKUJ] weekData structure: rounds=${weekData.rounds ? 'exists' : 'null'}, roundsLength=${weekData.rounds?.length}`);
+            logger.info(`[MODIFY] weekData structure: rounds=${weekData.rounds ? 'exists' : 'null'}, roundsLength=${weekData.rounds?.length}`);
 
             if (selectedRound === 'round1' && weekData.rounds && weekData.rounds[0]) {
-                logger.info(`[MODYFIKUJ] Szukam w round1, players count: ${weekData.rounds[0].players?.length}`);
+                logger.info(`[MODIFY] Szukam w round1, players count: ${weekData.rounds[0].players?.length}`);
                 player = weekData.rounds[0].players.find(p => p.userId === userId);
-                logger.info(`[MODYFIKUJ] Znaleziono gracza w round1: ${player ? 'TAK' : 'NIE'}`);
+                logger.info(`[MODIFY] Znaleziono gracza w round1: ${player ? 'TAK' : 'NIE'}`);
             } else if (selectedRound === 'round2' && weekData.rounds && weekData.rounds[1]) {
-                logger.info(`[MODYFIKUJ] Szukam w round2, players count: ${weekData.rounds[1].players?.length}`);
+                logger.info(`[MODIFY] Szukam w round2, players count: ${weekData.rounds[1].players?.length}`);
                 player = weekData.rounds[1].players.find(p => p.userId === userId);
             } else if (selectedRound === 'round3' && weekData.rounds && weekData.rounds[2]) {
-                logger.info(`[MODYFIKUJ] Szukam w round3, players count: ${weekData.rounds[2].players?.length}`);
+                logger.info(`[MODIFY] Szukam w round3, players count: ${weekData.rounds[2].players?.length}`);
                 player = weekData.rounds[2].players.find(p => p.userId === userId);
             } else {
-                logger.error(`[MODYFIKUJ] Nie można znaleźć rundy: selectedRound=${selectedRound}, weekData.rounds[0]=${weekData.rounds?.[0] ? 'exists' : 'null'}`);
+                logger.error(`[MODIFY] Nie można znaleźć rundy: selectedRound=${selectedRound}, weekData.rounds[0]=${weekData.rounds?.[0] ? 'exists' : 'null'}`);
             }
         } else {
             weekData = await databaseService.getPhase1Results(interaction.guild.id, weekNumber, year, clan);
 
             if (!weekData || !weekData.players) {
-                logger.error(`[MODYFIKUJ] Brak weekData for Phase1: guild=${interaction.guild.id}, week=${weekNumber}, year=${year}, clan=${clan}, weekData=${weekData}`);
+                logger.error(`[MODIFY] Brak weekData for Phase1: guild=${interaction.guild.id}, week=${weekNumber}, year=${year}, clan=${clan}, weekData=${weekData}`);
                 await interaction.reply({
                     content: '❌ Not found danych for wybranego tygodnia.',
                     flags: MessageFlags.Ephemeral
@@ -3736,7 +3736,7 @@ async function handleModyfikujPlayerSelect(interaction, sharedState) {
         }
 
         if (!player) {
-            logger.error(`[MODYFIKUJ] Not found gracza: userId=${userId}, phase=${selectedPhase}, round=${selectedRound}, clan=${clan}, week=${weekNumber}/${year}`);
+            logger.error(`[MODIFY] Not found gracza: userId=${userId}, phase=${selectedPhase}, round=${selectedRound}, clan=${clan}, week=${weekNumber}/${year}`);
             await interaction.reply({
                 content: '❌ Not found gracza.',
                 flags: MessageFlags.Ephemeral
@@ -3747,7 +3747,7 @@ async function handleModyfikujPlayerSelect(interaction, sharedState) {
         // Pokaż modal do wprowadzenia nowego wyniku
         const customIdSuffix = selectedRound ? `${selectedPhase}|${selectedRound}` : selectedPhase;
         const modal = new ModalBuilder()
-            .setCustomId(`modyfikuj_modal_${customIdSuffix}|${clan}|${weekNumber}-${year}|${userId}`)
+            .setCustomId(`modify_modal_${customIdSuffix}|${clan}|${weekNumber}-${year}|${userId}`)
             .setTitle('Modify player result');
 
         const scoreInput = new TextInputBuilder()
@@ -3765,7 +3765,7 @@ async function handleModyfikujPlayerSelect(interaction, sharedState) {
         await interaction.showModal(modal);
 
     } catch (error) {
-        logger.error('[MODYFIKUJ] ❌ Błąd wyboru gracza:', error);
+        logger.error('[MODIFY] ❌ Błąd wyboru gracza:', error);
         await interaction.reply({
             content: '❌ An error occurred podczas wyboru gracza.',
             flags: MessageFlags.Ephemeral
@@ -3773,14 +3773,14 @@ async function handleModyfikujPlayerSelect(interaction, sharedState) {
     }
 }
 
-async function handleModyfikujPaginationButton(interaction, sharedState) {
+async function handleModifyPaginationButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
     await interaction.deferUpdate();
 
     try {
         const parts = interaction.customId.split('|');
-        const action = parts[0]; // modyfikuj_page_prev lub modyfikuj_page_next
+        const action = parts[0]; // modify_page_prev lub modify_page_next
         const clan = parts[1];
         const weekKey = parts[2];
         const currentPage = parseInt(parts[3]);
@@ -3791,9 +3791,9 @@ async function handleModyfikujPaginationButton(interaction, sharedState) {
 
         // Oblicz nową stronę
         let newPage = currentPage;
-        if (action === 'modyfikuj_page_prev') {
+        if (action === 'modify_page_prev') {
             newPage = Math.max(0, currentPage - 1);
-        } else if (action === 'modyfikuj_page_next') {
+        } else if (action === 'modify_page_next') {
             newPage = currentPage + 1;
         }
 
@@ -3807,7 +3807,7 @@ async function handleModyfikujPaginationButton(interaction, sharedState) {
             weekData = await databaseService.getPhase2Results(interaction.guild.id, weekNumber, year, clan);
 
             if (!weekData) {
-                logger.error(`[MODYFIKUJ] Brak weekData for Phase2: guild=${interaction.guild.id}, week=${weekNumber}, year=${year}, clan=${clan}`);
+                logger.error(`[MODIFY] Brak weekData for Phase2: guild=${interaction.guild.id}, week=${weekNumber}, year=${year}, clan=${clan}`);
                 await interaction.editReply({
                     content: `❌ Brak danych for wybranego tygodnia i klanu **${clanName}**.`,
                     embeds: [],
@@ -3828,7 +3828,7 @@ async function handleModyfikujPaginationButton(interaction, sharedState) {
             weekData = await databaseService.getPhase1Results(interaction.guild.id, weekNumber, year, clan);
 
             if (!weekData) {
-                logger.error(`[MODYFIKUJ] Brak weekData for Phase1: guild=${interaction.guild.id}, week=${weekNumber}, year=${year}, clan=${clan}`);
+                logger.error(`[MODIFY] Brak weekData for Phase1: guild=${interaction.guild.id}, week=${weekNumber}, year=${year}, clan=${clan}`);
                 await interaction.editReply({
                     content: `❌ Brak danych for wybranego tygodnia i klanu **${clanName}**.`,
                     embeds: [],
@@ -3841,7 +3841,7 @@ async function handleModyfikujPaginationButton(interaction, sharedState) {
         }
 
         if (!players || players.length === 0) {
-            logger.error(`[MODYFIKUJ] Brak players for: guild=${interaction.guild.id}, week=${weekNumber}, year=${year}, clan=${clan}, phase=${selectedPhase}, round=${selectedRound}`);
+            logger.error(`[MODIFY] Brak players for: guild=${interaction.guild.id}, week=${weekNumber}, year=${year}, clan=${clan}, phase=${selectedPhase}, round=${selectedRound}`);
             await interaction.editReply({
                 content: `❌ Brak players for wybranego tygodnia i klanu **${clanName}**.`,
                 embeds: [],
@@ -3864,7 +3864,7 @@ async function handleModyfikujPaginationButton(interaction, sharedState) {
         // Utwórz select menu z graczami na aktualnej stronie
         const customIdSuffix = selectedRound ? `${selectedPhase}|${selectedRound}` : selectedPhase;
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(`modyfikuj_select_player_${customIdSuffix}`)
+            .setCustomId(`modify_select_player_${customIdSuffix}`)
             .setPlaceholder('Select player')
             .addOptions(
                 playersOnPage.map(player => {
@@ -3884,17 +3884,17 @@ async function handleModyfikujPaginationButton(interaction, sharedState) {
         const paginationRow = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`modyfikuj_page_prev|${clan}|${weekNumber}-${year}|${validPage}${paginationCustomId}`)
+                    .setCustomId(`modify_page_prev|${clan}|${weekNumber}-${year}|${validPage}${paginationCustomId}`)
                     .setLabel('◀ Poprzednia')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(validPage === 0),
                 new ButtonBuilder()
-                    .setCustomId(`modyfikuj_page_info|${clan}|${weekNumber}-${year}|${validPage}${paginationCustomId}`)
+                    .setCustomId(`modify_page_info|${clan}|${weekNumber}-${year}|${validPage}${paginationCustomId}`)
                     .setLabel(`Page ${validPage + 1}/${totalPages}`)
                     .setStyle(ButtonStyle.Secondary)
                     .setDisabled(true),
                 new ButtonBuilder()
-                    .setCustomId(`modyfikuj_page_next|${clan}|${weekNumber}-${year}|${validPage}${paginationCustomId}`)
+                    .setCustomId(`modify_page_next|${clan}|${weekNumber}-${year}|${validPage}${paginationCustomId}`)
                     .setLabel('Następna ▶')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(validPage === totalPages - 1)
@@ -3917,9 +3917,9 @@ async function handleModyfikujPaginationButton(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[MODYFIKUJ] ❌ Błąd paginacji:', error);
-        logger.error('[MODYFIKUJ] ❌ Error stack:', error.stack);
-        logger.error('[MODYFIKUJ] ❌ customId:', interaction.customId);
+        logger.error('[MODIFY] ❌ Błąd paginacji:', error);
+        logger.error('[MODIFY] ❌ Error stack:', error.stack);
+        logger.error('[MODIFY] ❌ customId:', interaction.customId);
 
         try {
             if (interaction.deferred || interaction.replied) {
@@ -3936,25 +3936,25 @@ async function handleModyfikujPaginationButton(interaction, sharedState) {
                 });
             }
         } catch (replyError) {
-            logger.error('[MODYFIKUJ] ❌ Błąd podczas odpowiedzi na błąd:', replyError);
+            logger.error('[MODIFY] ❌ Błąd podczas odpowiedzi na błąd:', replyError);
         }
     }
 }
 
-async function handleModyfikujWeekPaginationButton(interaction, sharedState) {
+async function handleModifyWeekPaginationButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
     try {
         const parts = interaction.customId.split('|');
-        const action = parts[0]; // modyfikuj_week_prev lub modyfikuj_week_next
+        const action = parts[0]; // modify_week_prev lub modify_week_next
         const clan = parts[1];
         const currentPage = parseInt(parts[2]);
 
         // Oblicz nową stronę
         let newPage = currentPage;
-        if (action === 'modyfikuj_week_prev') {
+        if (action === 'modify_week_prev') {
             newPage = Math.max(0, currentPage - 1);
-        } else if (action === 'modyfikuj_week_next') {
+        } else if (action === 'modify_week_next') {
             newPage = currentPage + 1;
         }
 
@@ -3983,7 +3983,7 @@ async function handleModyfikujWeekPaginationButton(interaction, sharedState) {
 
         // Utwórz select menu z tygodniami na aktualnej stronie
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('modyfikuj_select_week')
+            .setCustomId('modify_select_week')
             .setPlaceholder('Select week')
             .addOptions(
                 weeksOnPage.map(week => {
@@ -4007,17 +4007,17 @@ async function handleModyfikujWeekPaginationButton(interaction, sharedState) {
         const paginationRow = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`modyfikuj_week_prev|${clan}|${validPage}`)
+                    .setCustomId(`modify_week_prev|${clan}|${validPage}`)
                     .setLabel('◀ Poprzednia')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(validPage === 0),
                 new ButtonBuilder()
-                    .setCustomId(`modyfikuj_week_info|${clan}|${validPage}`)
+                    .setCustomId(`modify_week_info|${clan}|${validPage}`)
                     .setLabel(`Page ${validPage + 1}/${totalPages}`)
                     .setStyle(ButtonStyle.Secondary)
                     .setDisabled(true),
                 new ButtonBuilder()
-                    .setCustomId(`modyfikuj_week_next|${clan}|${validPage}`)
+                    .setCustomId(`modify_week_next|${clan}|${validPage}`)
                     .setLabel('Następna ▶')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(validPage === totalPages - 1)
@@ -4036,7 +4036,7 @@ async function handleModyfikujWeekPaginationButton(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[MODYFIKUJ] ❌ Błąd paginacji tygodni:', error);
+        logger.error('[MODIFY] ❌ Błąd paginacji tygodni:', error);
         await interaction.update({
             content: '❌ An error occurred podczas zmiany strony.',
             embeds: [],
@@ -4045,16 +4045,16 @@ async function handleModyfikujWeekPaginationButton(interaction, sharedState) {
     }
 }
 
-async function handleModyfikujModalSubmit(interaction, sharedState) {
+async function handleModifyModalSubmit(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
     try {
-        // Parsuj customId: modyfikuj_modal_phase1|clan|week|userId lub modyfikuj_modal_phase2|round1|clan|week|userId
-        const customIdParts = interaction.customId.replace('modyfikuj_modal_', '').split('|');
+        // Parsuj customId: modify_modal_phase1|clan|week|userId lub modify_modal_phase2|round1|clan|week|userId
+        const customIdParts = interaction.customId.replace('modify_modal_', '').split('|');
 
         let selectedPhase, selectedRound, clan, weekKey, userId;
 
-        logger.info(`[MODYFIKUJ] Modal customId parts: ${JSON.stringify(customIdParts)}`);
+        logger.info(`[MODIFY] Modal customId parts: ${JSON.stringify(customIdParts)}`);
 
         if (customIdParts[0] === 'phase2') {
             selectedPhase = customIdParts[0];
@@ -4070,7 +4070,7 @@ async function handleModyfikujModalSubmit(interaction, sharedState) {
             userId = customIdParts[3];
         }
 
-        logger.info(`[MODYFIKUJ] Modal parsed: phase=${selectedPhase}, round=${selectedRound}, clan=${clan}, week=${weekKey}, userId=${userId}`);
+        logger.info(`[MODIFY] Modal parsed: phase=${selectedPhase}, round=${selectedRound}, clan=${clan}, week=${weekKey}, userId=${userId}`);
 
         const [weekNumber, year] = weekKey.split('-').map(Number);
         const newScore = interaction.fields.getTextInputValue('new_score');
@@ -4135,11 +4135,11 @@ async function handleModyfikujModalSubmit(interaction, sharedState) {
         const row = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`modyfikuj_confirm_${customIdSuffix}|${clan}|${weekNumber}-${year}|${userId}|${newScoreNum}`)
+                    .setCustomId(`modify_confirm_${customIdSuffix}|${clan}|${weekNumber}-${year}|${userId}|${newScoreNum}`)
                     .setLabel('🟢 Zamień')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
-                    .setCustomId('modyfikuj_cancel')
+                    .setCustomId('modify_cancel')
                     .setLabel('🔴 Anuluj')
                     .setStyle(ButtonStyle.Danger)
             );
@@ -4151,7 +4151,7 @@ async function handleModyfikujModalSubmit(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[MODYFIKUJ] ❌ Błąd modala:', error);
+        logger.error('[MODIFY] ❌ Błąd modala:', error);
         await interaction.reply({
             content: '❌ An error occurred podczas przetwarzania formularza.',
             flags: MessageFlags.Ephemeral
@@ -4159,10 +4159,10 @@ async function handleModyfikujModalSubmit(interaction, sharedState) {
     }
 }
 
-async function handleModyfikujConfirmButton(interaction, sharedState) {
+async function handleModifyConfirmButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
-    if (interaction.customId === 'modyfikuj_cancel') {
+    if (interaction.customId === 'modify_cancel') {
         await interaction.update({
             content: '❌ Operation cancelled.',
             embeds: [],
@@ -4172,12 +4172,12 @@ async function handleModyfikujConfirmButton(interaction, sharedState) {
     }
 
     try {
-        // Parsuj customId: modyfikuj_confirm_phase1|clan|week|userId|score lub modyfikuj_confirm_phase2|round1|clan|week|userId|score
-        const customIdParts = interaction.customId.replace('modyfikuj_confirm_', '').split('|');
+        // Parsuj customId: modify_confirm_phase1|clan|week|userId|score lub modify_confirm_phase2|round1|clan|week|userId|score
+        const customIdParts = interaction.customId.replace('modify_confirm_', '').split('|');
 
         let selectedPhase, selectedRound, clan, weekKey, userId, newScore;
 
-        logger.info(`[MODYFIKUJ] Confirm customId parts: ${JSON.stringify(customIdParts)}`);
+        logger.info(`[MODIFY] Confirm customId parts: ${JSON.stringify(customIdParts)}`);
 
         if (customIdParts[0] === 'phase2') {
             selectedPhase = customIdParts[0];
@@ -4195,7 +4195,7 @@ async function handleModyfikujConfirmButton(interaction, sharedState) {
             newScore = customIdParts[4];
         }
 
-        logger.info(`[MODYFIKUJ] Confirm parsed: phase=${selectedPhase}, round=${selectedRound}, clan=${clan}, week=${weekKey}, userId=${userId}, newScore=${newScore}`);
+        logger.info(`[MODIFY] Confirm parsed: phase=${selectedPhase}, round=${selectedRound}, clan=${clan}, week=${weekKey}, userId=${userId}, newScore=${newScore}`);
 
         const [weekNumber, year] = weekKey.split('-').map(Number);
         const newScoreNum = parseInt(newScore);
@@ -4263,7 +4263,7 @@ async function handleModyfikujConfirmButton(interaction, sharedState) {
                 score: summedScores.get(p.userId) || 0
             }));
 
-            logger.info(`[MODYFIKUJ] Zaktualizowano sumę for gracza ${userId}: ${summedScores.get(userId)}`);
+            logger.info(`[MODIFY] Zaktualizowano sumę for gracza ${userId}: ${summedScores.get(userId)}`);
 
             // Zapisz zaktualizowane dane (zachowaj oryginalnego creatora)
             await databaseService.savePhase2Results(
@@ -4310,10 +4310,10 @@ async function handleModyfikujConfirmButton(interaction, sharedState) {
             components: []
         });
 
-        logger.info(`[MODYFIKUJ] ✅ Zmieniono wynik ${player.displayName}: ${oldScore} → ${newScoreNum} (Clan: ${clan}, Week: ${weekNumber}/${year})`);
+        logger.info(`[MODIFY] ✅ Zmieniono wynik ${player.displayName}: ${oldScore} → ${newScoreNum} (Clan: ${clan}, Week: ${weekNumber}/${year})`);
 
     } catch (error) {
-        logger.error('[MODYFIKUJ] ❌ Błąd potwierdzenia:', error);
+        logger.error('[MODIFY] ❌ Błąd potwierdzenia:', error);
         await interaction.update({
             content: '❌ An error occurred podczas zapisywania zmiany.',
             embeds: [],
@@ -4322,7 +4322,7 @@ async function handleModyfikujConfirmButton(interaction, sharedState) {
     }
 }
 
-// =============== WYNIKI HANDLERS ===============
+// =============== RESULTS HANDLERS ===============
 
 async function handleResultsClanSelect(interaction, sharedState, page = 0) {
     const { databaseService, config } = sharedState;
@@ -4383,7 +4383,7 @@ async function handleResultsClanSelect(interaction, sharedState, page = 0) {
 
         if (weeksForClan.length === 0) {
             await interaction.editReply({
-                content: `📊 Brak zapisanych wyników for clan **${clanName}**.\n\nUżyj \`/faza1\` lub \`/faza2\` aby rozpocząć zbieranie danych.`,
+                content: `📊 Brak zapisanych wyników for clan **${clanName}**.\n\nUżyj \`/phase1\` lub \`/phase2\` aby rozpocząć zbieranie danych.`,
                 components: []
             });
             return;
@@ -4398,7 +4398,7 @@ async function handleResultsClanSelect(interaction, sharedState, page = 0) {
 
         // Utwórz select menu z tygodniami
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('wyniki_select_week')
+            .setCustomId('results_select_week')
             .setPlaceholder('Select week')
             .addOptions(
                 weeksOnPage.map(week => {
@@ -4428,13 +4428,13 @@ async function handleResultsClanSelect(interaction, sharedState, page = 0) {
             const navRow = new ActionRowBuilder();
 
             const prevButton = new ButtonBuilder()
-                .setCustomId(`wyniki_weeks_prev|${selectedClan}|${page}`)
+                .setCustomId(`results_weeks_prev|${selectedClan}|${page}`)
                 .setLabel('◀ Poprzednia')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(page === 0);
 
             const nextButton = new ButtonBuilder()
-                .setCustomId(`wyniki_weeks_next|${selectedClan}|${page}`)
+                .setCustomId(`results_weeks_next|${selectedClan}|${page}`)
                 .setLabel('Następna ▶')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(page >= totalPages - 1);
@@ -4456,7 +4456,7 @@ async function handleResultsClanSelect(interaction, sharedState, page = 0) {
         });
 
     } catch (error) {
-        logger.error('[WYNIKI] ❌ Błąd wyboru klanu:', error);
+        logger.error('[RESULTS] ❌ Błąd wyboru klanu:', error);
         await interaction.editReply({
             content: '❌ An error occurred podczas wyboru klanu.',
             components: []
@@ -4468,17 +4468,17 @@ async function handleResultsWeekPaginationButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
     try {
-        // Format customId: wyniki_weeks_prev|clanKey|page lub wyniki_weeks_next|clanKey|page
+        // Format customId: results_weeks_prev|clanKey|page lub results_weeks_next|clanKey|page
         const customIdParts = interaction.customId.split('|');
-        const action = customIdParts[0]; // np. "wyniki_weeks_prev"
+        const action = customIdParts[0]; // np. "results_weeks_prev"
         const clan = customIdParts[1];
         const currentPage = parseInt(customIdParts[2]);
 
         // Oblicz nową stronę
         let newPage = currentPage;
-        if (action === 'wyniki_weeks_prev') {
+        if (action === 'results_weeks_prev') {
             newPage = Math.max(0, currentPage - 1);
-        } else if (action === 'wyniki_weeks_next') {
+        } else if (action === 'results_weeks_next') {
             newPage = currentPage + 1;
         }
 
@@ -4493,7 +4493,7 @@ async function handleResultsWeekPaginationButton(interaction, sharedState) {
         await handleResultsClanSelect(mockInteraction, sharedState, newPage);
 
     } catch (error) {
-        logger.error('[WYNIKI] ❌ Błąd paginacji tygodni:', error);
+        logger.error('[RESULTS] ❌ Błąd paginacji tygodni:', error);
         await interaction.update({
             content: '❌ An error occurred podczas zmiany strony.',
             embeds: [],
@@ -4531,7 +4531,7 @@ async function handleResultsWeekSelect(interaction, sharedState, view = 'phase1'
         await showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, clan, weekNumber, year, view, config, false, true);
 
     } catch (error) {
-        logger.error('[WYNIKI] ❌ Błąd wyświetlania wyników:', error);
+        logger.error('[RESULTS] ❌ Błąd wyświetlania wyników:', error);
         await interaction.editReply({
             content: '❌ An error occurred podczas wyświetlania wyników.',
             components: []
@@ -4543,7 +4543,7 @@ async function handleResultsViewButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
     try {
-        // Format: wyniki_view|clanKey|weekNumber-year|view
+        // Format: results_view|clanKey|weekNumber-year|view
         const parts = interaction.customId.split('|');
         const clan = parts[1];
         const weekKey = parts[2];
@@ -4567,7 +4567,7 @@ async function handleResultsViewButton(interaction, sharedState) {
         await showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, clan, weekNumber, year, view, config, true);
 
     } catch (error) {
-        logger.error('[WYNIKI] ❌ Błąd przełączania widoku:', error);
+        logger.error('[RESULTS] ❌ Błąd przełączania widoku:', error);
         await interaction.update({
             content: '❌ An error occurred podczas przełączania widoku.',
             embeds: [],
@@ -4580,7 +4580,7 @@ async function handleResultsPhase2ViewButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
     try {
-        // Format: wyniki_phase2_view|clanKey|weekNumber-year|view
+        // Format: results_phase2_view|clanKey|weekNumber-year|view
         const parts = interaction.customId.split('|');
         const clan = parts[1];
         const weekKey = parts[2];
@@ -4602,7 +4602,7 @@ async function handleResultsPhase2ViewButton(interaction, sharedState) {
         await showPhase2Results(interaction, weekData, clan, weekNumber, year, view, config, true);
 
     } catch (error) {
-        logger.error('[WYNIKI] ❌ Błąd przełączania widoku Phase 2:', error);
+        logger.error('[RESULTS] ❌ Błąd przełączania widoku Phase 2:', error);
         await interaction.update({
             content: '❌ An error occurred podczas przełączania widoku.',
             embeds: [],
@@ -4692,19 +4692,19 @@ async function showPhase2Results(interaction, weekData, clan, weekNumber, year, 
     const navRow = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
-                .setCustomId(`wyniki_phase2_view|${clan}|${weekNumber}-${year}|round1`)
+                .setCustomId(`results_phase2_view|${clan}|${weekNumber}-${year}|round1`)
                 .setLabel('Round 1')
                 .setStyle(view === 'round1' ? ButtonStyle.Primary : ButtonStyle.Secondary),
             new ButtonBuilder()
-                .setCustomId(`wyniki_phase2_view|${clan}|${weekNumber}-${year}|round2`)
+                .setCustomId(`results_phase2_view|${clan}|${weekNumber}-${year}|round2`)
                 .setLabel('Round 2')
                 .setStyle(view === 'round2' ? ButtonStyle.Primary : ButtonStyle.Secondary),
             new ButtonBuilder()
-                .setCustomId(`wyniki_phase2_view|${clan}|${weekNumber}-${year}|round3`)
+                .setCustomId(`results_phase2_view|${clan}|${weekNumber}-${year}|round3`)
                 .setLabel('Round 3')
                 .setStyle(view === 'round3' ? ButtonStyle.Primary : ButtonStyle.Secondary),
             new ButtonBuilder()
-                .setCustomId(`wyniki_phase2_view|${clan}|${weekNumber}-${year}|summary`)
+                .setCustomId(`results_phase2_view|${clan}|${weekNumber}-${year}|summary`)
                 .setLabel('Suma')
                 .setStyle(view === 'summary' ? ButtonStyle.Primary : ButtonStyle.Secondary)
         );
@@ -4839,7 +4839,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
                     }
                 }
             } catch (error) {
-                logger.error('[WYNIKI] Błąd pobierania TOP30 z poprzedniego tygodnia:', error);
+                logger.error('[RESULTS] Błąd pobierania TOP30 z poprzedniego tygodnia:', error);
             }
         }
 
@@ -4970,7 +4970,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
         }
     }
 
-    // Kanały, na których wiadomości z /wyniki nie będą automatycznie usuwane
+    // Kanały, na których wiadomości z /results nie będą automatycznie usuwane
     const permanentChannels = [
         '1185510890930458705',
         '1200055492458856458',
@@ -5010,27 +5010,27 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
     const navRow = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
-                .setCustomId(`wyniki_view|${clan}|${weekNumber}-${year}|phase1`)
+                .setCustomId(`results_view|${clan}|${weekNumber}-${year}|phase1`)
                 .setLabel('Phase 1')
                 .setStyle(view === 'phase1' ? ButtonStyle.Primary : ButtonStyle.Secondary)
                 .setDisabled(!weekDataPhase1),
             new ButtonBuilder()
-                .setCustomId(`wyniki_view|${clan}|${weekNumber}-${year}|round1`)
+                .setCustomId(`results_view|${clan}|${weekNumber}-${year}|round1`)
                 .setLabel('Round 1')
                 .setStyle(view === 'round1' ? ButtonStyle.Primary : ButtonStyle.Secondary)
                 .setDisabled(!weekDataPhase2?.rounds?.[0]),
             new ButtonBuilder()
-                .setCustomId(`wyniki_view|${clan}|${weekNumber}-${year}|round2`)
+                .setCustomId(`results_view|${clan}|${weekNumber}-${year}|round2`)
                 .setLabel('Round 2')
                 .setStyle(view === 'round2' ? ButtonStyle.Primary : ButtonStyle.Secondary)
                 .setDisabled(!weekDataPhase2?.rounds?.[1]),
             new ButtonBuilder()
-                .setCustomId(`wyniki_view|${clan}|${weekNumber}-${year}|round3`)
+                .setCustomId(`results_view|${clan}|${weekNumber}-${year}|round3`)
                 .setLabel('Round 3')
                 .setStyle(view === 'round3' ? ButtonStyle.Primary : ButtonStyle.Secondary)
                 .setDisabled(!weekDataPhase2?.rounds?.[2]),
             new ButtonBuilder()
-                .setCustomId(`wyniki_view|${clan}|${weekNumber}-${year}|summary`)
+                .setCustomId(`results_view|${clan}|${weekNumber}-${year}|summary`)
                 .setLabel('Suma Phase 2')
                 .setStyle(view === 'summary' ? ButtonStyle.Primary : ButtonStyle.Secondary)
                 .setDisabled(!weekDataPhase2)
@@ -5043,7 +5043,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
 
     let response;
     if (useFollowUp) {
-        // Dla /wyniki - wyślij publiczną wiadomość
+        // Dla /results - wyślij publiczną wiadomość
         await interaction.editReply({
             content: '✅ Results zostały wysłane publicznie poniżej.',
             embeds: [],
@@ -5098,7 +5098,7 @@ async function handleResultsCommand(interaction, sharedState) {
 
     if (!allowedChannels.includes(interaction.channelId) && !isAdmin) {
         await interaction.reply({
-            content: `❌ Command \`/wyniki\` jest dostępna tylko na określonych kanałach.`,
+            content: `❌ Command \`/results\` jest dostępna tylko na określonych kanałach.`,
             flags: MessageFlags.Ephemeral
         });
         return;
@@ -5115,7 +5115,7 @@ async function handleResultsCommand(interaction, sharedState) {
         });
 
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('wyniki_select_clan')
+            .setCustomId('results_select_clan')
             .setPlaceholder('Select clan')
             .addOptions(clanOptions);
 
@@ -5134,7 +5134,7 @@ async function handleResultsCommand(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[WYNIKI] ❌ Błąd pobierania wyników:', error);
+        logger.error('[RESULTS] ❌ Błąd pobierania wyników:', error);
         await interaction.editReply({
             content: '❌ An error occurred podczas pobierania wyników.'
         });
