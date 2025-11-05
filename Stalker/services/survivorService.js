@@ -103,7 +103,11 @@ class SurvivorService {
                     return null;
                 }
 
-                const cleanJsonString = jsonString.substring(jsonStart);
+                let cleanJsonString = jsonString.substring(jsonStart);
+                // Obsługa podwójnego nawiasu {{ z sio-tools.vercel.app
+                if (cleanJsonString.startsWith('{{')) {
+                    cleanJsonString = cleanJsonString.substring(1);
+                }
                 const parsed = JSON.parse(cleanJsonString);
 
                 // Przekonwertuj format sio-tools na nasz format
@@ -1602,7 +1606,11 @@ class SurvivorService {
                 const jsonStart = jsonString.indexOf('{');
 
                 if (jsonStart !== -1) {
-                    const cleanJsonString = jsonString.substring(jsonStart);
+                    let cleanJsonString = jsonString.substring(jsonStart);
+                    // Obsługa podwójnego nawiasu {{ z sio-tools.vercel.app
+                    if (cleanJsonString.startsWith('{{')) {
+                        cleanJsonString = cleanJsonString.substring(1);
+                    }
                     const parsed = JSON.parse(cleanJsonString);
 
                     const converted = this.convertSioToolsFormat(parsed);
