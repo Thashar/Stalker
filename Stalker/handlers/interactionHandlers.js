@@ -2170,10 +2170,10 @@ async function showPhase1FinalSummary(interaction, session, phaseService) {
 
     const summaryEmbed = phaseService.createFinalSummaryEmbed(stats, weekInfo, session.clan, 1);
 
-    // Add players list do description
+    // Add players list to description
     const clanName = phaseService.config.roleDisplayNames[session.clan] || session.clan;
     summaryEmbed.embed.setDescription(
-        `**Clan:** ${clanName}\n**Week:** ${weekInfo.weekNumber}/${weekInfo.year}\n**TOP30:** ${stats.top30Sum.toLocaleString('pl-PL')} pkt\n\n${resultsText}\n\n✅ Analyzed all images and resolved conflicts.`
+        `**Clan:** ${clanName}\n**Week:** ${weekInfo.weekNumber}/${weekInfo.year}\n**TOP30:** ${stats.top30Sum.toLocaleString('en-US')} pts\n\n${resultsText}\n\n✅ Analyzed all images and resolved conflicts.\n\n**⚠️ Carefully verify that the final read result matches the actual points earned in the game.**\n**Accept the result only when everything matches!**`
     );
 
     session.stage = 'final_confirmation';

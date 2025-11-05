@@ -996,10 +996,13 @@ class PhaseService {
             .setDescription(
                 `📅 **Week:** ${weekNumber}/${year}\n\n` +
                 '**⚠️ IMPORTANT - Screenshot guidelines:**\n' +
-                '• Take screenshots **straight and carefully**\n' +
-                '• More screenshots (up to 10) improve read quality\n' +
-                '• If a nick appears **at least 2x**, it increases data confidence\n' +
-                '• Avoid blurry or skewed images\n\n' +
+                '**1.** Take screenshots carefully, nicks cannot be cut in half\n' +
+                '**2.** More screenshots improve read quality\n' +
+                '   • ONLY the first and last nick may not repeat!\n' +
+                '   • All other nicks must be repeated!\n' +
+                '   • Take screenshots following the pattern 1-9, +4, +5, +4, +5... 30-39, 31-40.\n' +
+                '**3.** Carefully verify that the final read result matches the actual points earned in the game.\n' +
+                '**Accept the result only when everything matches!**\n\n' +
                 '**You can submit from 1 to 10 images in one message.**\n\n' +
                 `⏱️ Expiration time: <t:${expiryTimestamp}:R>`
             )
@@ -1111,7 +1114,7 @@ class PhaseService {
 
         const embed = new EmbedBuilder()
             .setTitle(`📊 ${phaseTitle} Summary - Week ${weekInfo.weekNumber}/${weekInfo.year}`)
-            .setDescription('Analyzed all images and resolved conflicts.')
+            .setDescription('Analyzed all images and resolved conflicts.\n\n**⚠️ Carefully verify that the final read result matches the actual points earned in the game.**\n**Accept the result only when everything matches!**')
             .setColor('#00FF00')
             .addFields(...fields)
             .setTimestamp()
