@@ -1000,7 +1000,7 @@ class PhaseService {
                 '**2.** More screenshots improve read quality\n' +
                 '   • ONLY the first and last nick may not repeat!\n' +
                 '   • All other nicks must be repeated!\n' +
-                '   • Take screenshots following the pattern 1-9, +4, +5, +4, +5... 30-39, 31-40.\n' +
+                '   • Take screenshots following the pattern 1-9, +4, +5, +4, +5... 31-39, 32-40.\n' +
                 '**3.** Carefully verify that the final read result matches the actual points earned in the game.\n' +
                 '**Accept the result only when everything matches!**\n\n' +
                 '**You can submit from 1 to 10 images in one message.**\n\n' +
