@@ -106,96 +106,96 @@ class ReminderService {
 
     async sendRoleReminders(guild, roleId) {
         try {
-            logger.info('Przypomnienia dla roli');
-            logger.info(`🏰 Serwer: ${guild.name} (${guild.id})`);
-            logger.info(`🎭 Rola: ${roleId}`);
-            
+            logger.info('Role reminders');
+            logger.info(`🏰 Server: ${guild.name} (${guild.id})`);
+            logger.info(`🎭 Role: ${roleId}`);
+
             const role = guild.roles.cache.get(roleId);
-            
+
             if (!role) {
-                throw new Error('Nie znaleziono roli');
+                throw new Error('Role not found');
             }
-            
+
             const members = role.members;
             const remindersSent = [];
-            
+
             for (const [userId, member] of members) {
                 try {
                     const timeLeft = this.calculateTimeUntilDeadline();
                     const timeMessage = messages.formatTimeMessage(timeLeft);
-                    
+
                     const embed = new EmbedBuilder()
-                        .setTitle('⏰ PRZYPOMNIENIE O BOSSIE')
-                        .setDescription(`${timeMessage}\n\nPamiętaj o pokonaniu bossa, aby uniknąć punktów karnych!`)
+                        .setTitle('⏰ BOSS REMINDER')
+                        .setDescription(`${timeMessage}\n\nRemember to defeat the boss to avoid punishment points!`)
                         .setColor('#FFA500')
                         .setTimestamp()
-                        .setFooter({ text: 'System automatycznych przypomnień' });
-                    
+                        .setFooter({ text: 'Automatic reminder system' });
+
                     await member.send({ embeds: [embed] });
                     remindersSent.push(member);
-                    
-                    logger.info(`✅ Wysłano przypomnienie do ${member.displayName} (${member.id})`);
+
+                    logger.info(`✅ Sent reminder to ${member.displayName} (${member.id})`);
                 } catch (error) {
-                    logger.info(`⚠️ Nie udało się wysłać przypomnienia do ${member.displayName}: ${error.message}`);
+                    logger.info(`⚠️ Failed to send reminder to ${member.displayName}: ${error.message}`);
                 }
             }
-            
-            logger.info('Podsumowanie przypomnień roli:');
-            logger.info(`📤 Wysłanych przypomnień: ${remindersSent.length}`);
-            logger.info(`👥 Członków roli: ${members.size}`);
-            logger.info('✅ Przypomnienia dla roli zostały zakończone');
-            
+
+            logger.info('Role reminders summary:');
+            logger.info(`📤 Reminders sent: ${remindersSent.length}`);
+            logger.info(`👥 Role members: ${members.size}`);
+            logger.info('✅ Role reminders completed');
+
             return remindersSent;
         } catch (error) {
-            logger.error('Błąd przypomnień roli');
-            logger.error('❌ Błąd wysyłania przypomnień do roli:', error);
+            logger.error('Role reminders error');
+            logger.error('❌ Error sending reminders to role:', error);
             throw error;
         }
     }
 
     async sendBulkReminder(guild, roleId, customMessage = null) {
         try {
-            logger.info('Masowe przypomnienie');
-            logger.info(`🏰 Serwer: ${guild.name} (${guild.id})`);
-            logger.info(`🎭 Rola: ${roleId}`);
-            
+            logger.info('Bulk reminder');
+            logger.info(`🏰 Server: ${guild.name} (${guild.id})`);
+            logger.info(`🎭 Role: ${roleId}`);
+
             const role = guild.roles.cache.get(roleId);
-            
+
             if (!role) {
-                throw new Error('Nie znaleziono roli');
+                throw new Error('Role not found');
             }
-            
+
             const timeLeft = this.calculateTimeUntilDeadline();
             const timeMessage = messages.formatTimeMessage(timeLeft);
-            
+
             const embed = new EmbedBuilder()
-                .setTitle('⏰ PRZYPOMNIENIE O BOSSIE')
-                .setDescription(customMessage || `${timeMessage}\n\nPamiętaj o pokonaniu bossa, aby uniknąć punktów karnych!`)
+                .setTitle('⏰ BOSS REMINDER')
+                .setDescription(customMessage || `${timeMessage}\n\nRemember to defeat the boss to avoid punishment points!`)
                 .setColor('#FFA500')
                 .setTimestamp()
-                .setFooter({ text: 'System automatycznych przypomnień' });
-            
+                .setFooter({ text: 'Automatic reminder system' });
+
             const warningChannelId = this.config.warningChannels[roleId];
-            
+
             if (warningChannelId) {
                 const warningChannel = guild.channels.cache.get(warningChannelId);
-                
+
                 if (warningChannel) {
-                    await warningChannel.send({ 
+                    await warningChannel.send({
                         content: `${role}`,
-                        embeds: [embed] 
+                        embeds: [embed]
                     });
-                    
-                    logger.info(`✅ Wysłano masowe przypomnienie do kanału ${warningChannel.name} (${warningChannel.id})`);
-                    logger.info(`💬 Treść: ${customMessage ? 'Niestandardowa wiadomość' : 'Standardowe przypomnienie'}`);
+
+                    logger.info(`✅ Sent bulk reminder to channel ${warningChannel.name} (${warningChannel.id})`);
+                    logger.info(`💬 Content: ${customMessage ? 'Custom message' : 'Standard reminder'}`);
                     return true;
                 }
             }
-            
-            throw new Error('Nie znaleziono kanału ostrzeżeń dla tej roli');
+
+            throw new Error('Warning channel not found for this role');
         } catch (error) {
-            logger.error('Błąd masowego przypomnienia');
-            logger.error('❌ Błąd wysyłania masowego przypomnienia:', error);
+            logger.error('Bulk reminder error');
+            logger.error('❌ Error sending bulk reminder:', error);
             throw error;
         }
     }
@@ -226,12 +226,12 @@ class ReminderService {
 
     formatTimeLeft(timeLeft) {
         if (timeLeft <= 0) {
-            return 'Deadline minął!';
+            return 'Deadline passed!';
         }
-        
+
         const hours = Math.floor(timeLeft / (1000 * 60 * 60));
         const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-        
+
         if (hours > 0) {
             return `${hours}h ${minutes}m`;
         } else {

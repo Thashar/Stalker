@@ -39,8 +39,8 @@ class DatabaseService {
                 await this.savePhase2Data({});
             }
         } catch (error) {
-            logger.error('Błąd inicjalizacji bazy');
-            logger.error('❌ Błąd inicjalizacji bazy danych:', error);
+            logger.error('Database initialization error');
+            logger.error('❌ Database initialization error:', error);
         }
     }
 
@@ -97,7 +97,7 @@ class DatabaseService {
             const data = await fs.readFile(this.punishmentsFile, 'utf8');
             return JSON.parse(data);
         } catch (error) {
-            logger.error('💥 Błąd wczytywania bazy kar:', error);
+            logger.error('💥 Error loading punishments database:', error);
             return {};
         }
     }
@@ -106,7 +106,7 @@ class DatabaseService {
         try {
             await fs.writeFile(this.punishmentsFile, JSON.stringify(data, null, 2), 'utf8');
         } catch (error) {
-            logger.error('💥 Błąd zapisywania bazy kar:', error);
+            logger.error('💥 Error saving punishments database:', error);
         }
     }
 
@@ -115,7 +115,7 @@ class DatabaseService {
             const data = await fs.readFile(this.weeklyRemovalFile, 'utf8');
             return JSON.parse(data);
         } catch (error) {
-            logger.error('💥 Błąd wczytywania danych tygodniowych:', error);
+            logger.error('💥 Error loading weekly data:', error);
             return {};
         }
     }
@@ -124,7 +124,7 @@ class DatabaseService {
         try {
             await fs.writeFile(this.weeklyRemovalFile, JSON.stringify(data, null, 2), 'utf8');
         } catch (error) {
-            logger.error('💥 Błąd zapisywania danych tygodniowych:', error);
+            logger.error('💥 Error saving weekly data:', error);
         }
     }
 
@@ -145,42 +145,42 @@ class DatabaseService {
         return punishments[guildId][userId];
     }
 
-    async addPunishmentPoints(guildId, userId, points, reason = 'Niepokonanie bossa') {
-        logger.info('Dodawanie punktów w bazie JSON...');
-        logger.info(`👤 Użytkownik: ${userId}`);
-        logger.info(`🎭 Dodawane punkty: ${points}`);
-        logger.info(`🏰 Serwer: ${guildId}`);
-        logger.info(`📝 Powód: ${reason}`);
-        
+    async addPunishmentPoints(guildId, userId, points, reason = 'Failed to defeat boss') {
+        logger.info('Adding points to JSON database...');
+        logger.info(`👤 User: ${userId}`);
+        logger.info(`🎭 Points being added: ${points}`);
+        logger.info(`🏰 Server: ${guildId}`);
+        logger.info(`📝 Reason: ${reason}`);
+
         const punishments = await this.loadPunishments();
-        
+
         if (!punishments[guildId]) {
-            logger.info('🏗️ Tworzenie nowego serwera w bazie...');
+            logger.info('🏗️ Creating new server in database...');
             punishments[guildId] = {};
         }
-        
+
         if (!punishments[guildId][userId]) {
-            logger.info('👤 Tworzenie nowego użytkownika w bazie...');
+            logger.info('👤 Creating new user in database...');
             punishments[guildId][userId] = {
                 points: 0,
                 history: []
             };
         }
-        
+
         const oldPoints = punishments[guildId][userId].points;
         punishments[guildId][userId].points += points;
         const newPoints = punishments[guildId][userId].points;
-        
+
         punishments[guildId][userId].history.push({
             points: points,
             reason: reason,
             date: new Date().toISOString()
         });
-        
-        logger.info(`📊 Punkty: ${oldPoints} -> ${newPoints}`);
-        
+
+        logger.info(`📊 Points: ${oldPoints} -> ${newPoints}`);
+
         await this.savePunishments(punishments);
-        logger.info('✅ Pomyślnie zapisano zmiany w bazie');
+        logger.info('✅ Successfully saved changes to database');
         return punishments[guildId][userId];
     }
 
@@ -194,7 +194,7 @@ class DatabaseService {
         punishments[guildId][userId].points = Math.max(0, punishments[guildId][userId].points - points);
         punishments[guildId][userId].history.push({
             points: -points,
-            reason: 'Ręczne usunięcie punktów',
+            reason: 'Manual point removal',
             date: new Date().toISOString()
         });
         
@@ -224,30 +224,30 @@ class DatabaseService {
     }
 
     async cleanupWeeklyPoints() {
-        logger.info('Tygodniowe usuwanie punktów');
-        
+        logger.info('Weekly point removal');
+
         const punishments = await this.loadPunishments();
         const weeklyRemoval = await this.loadWeeklyRemoval();
-        
+
         const now = new Date();
         const weekKey = `${now.getFullYear()}-W${this.getWeekNumber(now)}`;
-        
-        logger.info(`📅 Sprawdzanie tygodnia: ${weekKey}`);
-        
+
+        logger.info(`📅 Checking week: ${weekKey}`);
+
         if (weeklyRemoval[weekKey]) {
-            logger.info('⏭️ Punkty już zostały usunięte w tym tygodniu');
+            logger.info('⏭️ Points have already been removed this week');
             return;
         }
-        
+
         let totalCleaned = 0;
         let guildsProcessed = 0;
-        
-        logger.info('🔄 Rozpoczynam czyszczenie punktów...');
-        
+
+        logger.info('🔄 Starting point cleanup...');
+
         for (const guildId in punishments) {
-            logger.info(`Przetwarzanie serwera: ${guildId}`);
+            logger.info(`Processing server: ${guildId}`);
             let usersInGuild = 0;
-            
+
             for (const userId in punishments[guildId]) {
                 const oldPoints = punishments[guildId][userId].points;
                 if (oldPoints > 0) {
@@ -255,40 +255,40 @@ class DatabaseService {
                     const newPoints = punishments[guildId][userId].points;
                     punishments[guildId][userId].history.push({
                         points: -1,
-                        reason: 'Automatyczne tygodniowe usuwanie 1 punktu',
+                        reason: 'Automatic weekly removal of 1 point',
                         date: now.toISOString()
                     });
-                    logger.info(`➖ Użytkownik ${userId}: ${oldPoints} -> ${newPoints} punktów (usunięto 1)`);
+                    logger.info(`➖ User ${userId}: ${oldPoints} -> ${newPoints} points (removed 1)`);
                     totalCleaned++;
                     usersInGuild++;
-                    
-                    // Jeśli użytkownik ma teraz 0 punktów, usuń go z bazy
+
+                    // If user now has 0 points, remove from database
                     if (newPoints === 0) {
                         delete punishments[guildId][userId];
-                        logger.info(`🗑️ Użytkownik ${userId}: usunięty z bazy (0 punktów)`);
+                        logger.info(`🗑️ User ${userId}: removed from database (0 points)`);
                     }
                 } else {
-                    logger.info(`⏭️ Użytkownik ${userId}: już ma 0 punktów, pomijam`);
+                    logger.info(`⏭️ User ${userId}: already has 0 points, skipping`);
                 }
             }
-            
-            logger.info(`✅ Serwer ${guildId}: ${usersInGuild} użytkowników przetworzonych`);
+
+            logger.info(`✅ Server ${guildId}: ${usersInGuild} users processed`);
             guildsProcessed++;
         }
-        
+
         weeklyRemoval[weekKey] = {
             date: now.toISOString(),
             cleanedUsers: totalCleaned
         };
-        
+
         await this.savePunishments(punishments);
         await this.saveWeeklyRemoval(weeklyRemoval);
-        
-        logger.info('Podsumowanie tygodniowego usuwania:');
-        logger.info(`🏰 Serwerów przetworzonych: ${guildsProcessed}`);
-        logger.info(`👥 Użytkowników wyczyszczonych: ${totalCleaned}`);
-        logger.info(`📅 Tydzień: ${weekKey}`);
-        logger.info('✅ Tygodniowe czyszczenie zakończone pomyślnie');
+
+        logger.info('Weekly removal summary:');
+        logger.info(`🏰 Servers processed: ${guildsProcessed}`);
+        logger.info(`👥 Users cleaned: ${totalCleaned}`);
+        logger.info(`📅 Week: ${weekKey}`);
+        logger.info('✅ Weekly cleanup completed successfully');
     }
 
     getWeekNumber(date) {
@@ -310,7 +310,7 @@ class DatabaseService {
             const data = await fs.readFile(this.phase1File, 'utf8');
             return JSON.parse(data);
         } catch (error) {
-            logger.error('💥 Błąd wczytywania danych Fazy 1:', error);
+            logger.error('💥 Error loading Phase 1 data:', error);
             return {};
         }
     }
@@ -319,13 +319,13 @@ class DatabaseService {
         try {
             await fs.writeFile(this.phase1File, JSON.stringify(data, null, 2), 'utf8');
         } catch (error) {
-            logger.error('💥 Błąd zapisywania danych Fazy 1:', error);
+            logger.error('💥 Error saving Phase 1 data:', error);
         }
     }
 
     /**
-     * Sprawdza czy dane dla danego tygodnia już istnieją
-     * NOWA WERSJA - sprawdza czy plik istnieje
+     * Check if data for given week already exists
+     * NEW VERSION - checks if file exists
      */
     async checkPhase1DataExists(guildId, weekNumber, year, clan) {
         const filePath = this.getPhaseFilePath(guildId, 1, weekNumber, year, clan);
@@ -343,33 +343,33 @@ class DatabaseService {
     }
 
     /**
-     * Usuwa dane dla danego tygodnia i klanu
-     * NOWA WERSJA - usuwa plik
+     * Delete data for given week and clan
+     * NEW VERSION - deletes file
      */
     async deletePhase1DataForWeek(guildId, weekNumber, year, clan) {
-        logger.info(`[PHASE1] 🗑️ Usuwanie danych dla tygodnia ${weekNumber}/${year}, klan: ${clan}`);
+        logger.info(`[PHASE1] 🗑️ Deleting data for week ${weekNumber}/${year}, clan: ${clan}`);
 
         const filePath = this.getPhaseFilePath(guildId, 1, weekNumber, year, clan);
 
         try {
             await fs.unlink(filePath);
-            logger.info(`[PHASE1] ✅ Usunięto dane dla tygodnia ${weekNumber}/${year}, klan: ${clan}`);
+            logger.info(`[PHASE1] ✅ Deleted data for week ${weekNumber}/${year}, clan: ${clan}`);
             return true;
         } catch (error) {
-            logger.warn(`[PHASE1] ⚠️ Nie można usunąć pliku (możliwe że nie istnieje): ${filePath}`);
+            logger.warn(`[PHASE1] ⚠️ Cannot delete file (possibly doesn't exist): ${filePath}`);
             return false;
         }
     }
 
     /**
-     * Zapisuje pojedynczy wynik gracza dla danego tygodnia i klanu
-     * NOWA WERSJA - zapisuje do osobnego pliku
+     * Save single player result for given week and clan
+     * NEW VERSION - saves to separate file
      */
     async savePhase1Result(guildId, userId, displayName, score, weekNumber, year, clan, createdBy = null) {
         await this.ensurePhaseDirectories(guildId, 1, year);
         const filePath = this.getPhaseFilePath(guildId, 1, weekNumber, year, clan);
 
-        // Wczytaj istniejące dane lub utwórz nowe
+        // Load existing data or create new
         let weekData;
         let isNewFile = false;
         let isOverwriting = false;
@@ -379,7 +379,7 @@ class DatabaseService {
             weekData = JSON.parse(fileContent);
             isOverwriting = true;
         } catch (error) {
-            // Plik nie istnieje - utwórz nową strukturę
+            // File doesn't exist - create new structure
             weekData = {
                 players: [],
                 createdBy: createdBy,
@@ -389,14 +389,14 @@ class DatabaseService {
             isNewFile = true;
         }
 
-        // Jeśli nadpisujemy plik, wyświetl informację
+        // If overwriting file, display information
         if (isOverwriting && weekData.players.length === 0) {
-            logger.warn(`[PHASE1] ⚠️ Nadpisywanie danych dla tygodnia ${weekNumber}/${year}, klan: ${clan}`);
+            logger.warn(`[PHASE1] ⚠️ Overwriting data for week ${weekNumber}/${year}, clan: ${clan}`);
         } else if (isOverwriting) {
-            logger.warn(`[PHASE1] ⚠️ Nadpisywanie danych dla tygodnia ${weekNumber}/${year}, klan: ${clan} (poprzednio: ${weekData.players.length} graczy)`);
+            logger.warn(`[PHASE1] ⚠️ Overwriting data for week ${weekNumber}/${year}, clan: ${clan} (previously: ${weekData.players.length} players)`);
         }
 
-        // Sprawdź czy gracz już istnieje (aktualizuj jeśli tak)
+        // Check if player already exists (update if yes)
         const existingPlayerIndex = weekData.players.findIndex(p => p.userId === userId);
 
         if (existingPlayerIndex !== -1) {
@@ -417,9 +417,9 @@ class DatabaseService {
 
         weekData.updatedAt = new Date().toISOString();
 
-        // Zapisz do pliku
+        // Save to file
         await fs.writeFile(filePath, JSON.stringify(weekData, null, 2), 'utf8');
-        logger.info(`[PHASE1] 💾 Zapisano: ${displayName} → ${score} punktów (klan: ${clan}, tydzień: ${weekNumber}/${year})`);
+        logger.info(`[PHASE1] 💾 Saved: ${displayName} → ${score} points (clan: ${clan}, week: ${weekNumber}/${year})`);
     }
 
     /**
@@ -539,7 +539,7 @@ class DatabaseService {
             return weeks;
 
         } catch (error) {
-            logger.error('[DB] ❌ Błąd odczytu dostępnych tygodni:', error);
+            logger.error('[DB] ❌ Error reading available weeks:', error);
             return [];
         }
     }
@@ -587,7 +587,7 @@ class DatabaseService {
                     const weekNumber = parseInt(match[1]);
                     // const fileClan = match[2]; // Nie filtrujemy po klanie - przeszukujemy wszystkie
 
-                    // Sprawdź czy ten tydzień jest PRZED określonym tygodniem
+                    // Sprawdź czy ten week jest PRZED określonym tygodniem
                     const isBeforeTarget = (year < beforeYear) ||
                                           (year === beforeYear && weekNumber < beforeWeekNumber);
 
@@ -613,7 +613,7 @@ class DatabaseService {
             return bestScore;
 
         } catch (error) {
-            logger.error('[DB] ❌ Błąd odczytu historycznego najwyższego wyniku:', error);
+            logger.error('[DB] ❌ Error reading historical best score:', error);
             return null;
         }
     }
@@ -625,7 +625,7 @@ class DatabaseService {
             const data = await fs.readFile(this.phase2File, 'utf8');
             return JSON.parse(data);
         } catch (error) {
-            logger.error('💥 Błąd wczytywania danych Fazy 2:', error);
+            logger.error('💥 Error loading Phase 2 data:', error);
             return {};
         }
     }
@@ -634,7 +634,7 @@ class DatabaseService {
         try {
             await fs.writeFile(this.phase2File, JSON.stringify(data, null, 2), 'utf8');
         } catch (error) {
-            logger.error('💥 Błąd zapisywania danych Fazy 2:', error);
+            logger.error('💥 Error saving Phase 2 data:', error);
         }
     }
 
@@ -668,7 +668,7 @@ class DatabaseService {
 
         try {
             await fs.unlink(filePath);
-            logger.info(`[PHASE2] ✅ Usunięto dane dla tygodnia ${weekNumber}/${year}, klan: ${clan}`);
+            logger.info(`[PHASE2] ✅ Deleted data for week ${weekNumber}/${year}, klan: ${clan}`);
             return true;
         } catch (error) {
             logger.warn(`[PHASE2] ⚠️ Nie można usunąć pliku (możliwe że nie istnieje): ${filePath}`);
@@ -705,7 +705,7 @@ class DatabaseService {
         };
 
         await fs.writeFile(filePath, JSON.stringify(weekData, null, 2), 'utf8');
-        logger.info(`[PHASE2] 💾 Zapisano dane dla ${summaryPlayers.length} graczy (3 rundy + suma, klan: ${clan}, tydzień: ${weekNumber}/${year})`);
+        logger.info(`[PHASE2] 💾 Saved data for ${summaryPlayers.length} players (3 rundy + suma, klan: ${clan}, week: ${weekNumber}/${year})`);
     }
 
     async savePhase2Result(guildId, userId, displayName, score, weekNumber, year, clan) {
@@ -749,7 +749,7 @@ class DatabaseService {
         data[guildId][weekKey][clan].updatedAt = new Date().toISOString();
 
         await this.savePhase2Data(data);
-        logger.info(`[PHASE2] 💾 Zapisano: ${displayName} → ${score} punktów (klan: ${clan})`);
+        logger.info(`[PHASE2] 💾 Zapisano: ${displayName} → ${score} points (klan: ${clan})`);
     }
 
     async getPhase2Summary(guildId, weekNumber, year, clan) {
@@ -859,7 +859,7 @@ class DatabaseService {
             return weeks;
 
         } catch (error) {
-            logger.error('[DB] ❌ Błąd odczytu dostępnych tygodni Phase2:', error);
+            logger.error('[DB] ❌ Error reading available weeks Phase2:', error);
             return [];
         }
     }
@@ -900,7 +900,7 @@ class DatabaseService {
                                 phase1Count++;
                                 logger.info(`[MIGRATION] ✅ Phase1: ${guildId}/${weekKey}/${clan}`);
                             } catch (error) {
-                                logger.error(`[MIGRATION] ❌ Błąd migracji Phase1 ${guildId}/${weekKey}/${clan}:`, error);
+                                logger.error(`[MIGRATION] ❌ Migration error Phase1 ${guildId}/${weekKey}/${clan}:`, error);
                                 errors++;
                             }
                         }
@@ -935,7 +935,7 @@ class DatabaseService {
                                 phase2Count++;
                                 logger.info(`[MIGRATION] ✅ Phase2: ${guildId}/${weekKey}/${clan}`);
                             } catch (error) {
-                                logger.error(`[MIGRATION] ❌ Błąd migracji Phase2 ${guildId}/${weekKey}/${clan}:`, error);
+                                logger.error(`[MIGRATION] ❌ Migration error Phase2 ${guildId}/${weekKey}/${clan}:`, error);
                                 errors++;
                             }
                         }

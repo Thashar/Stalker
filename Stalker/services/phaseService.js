@@ -14,35 +14,35 @@ class PhaseService {
         this.client = client;
         this.activeSessions = new Map(); // sessionId → session data
         this.tempDir = path.join(__dirname, '..', 'temp', 'phase1');
-        this.activeProcessing = new Map(); // guildId → userId (kto obecnie przetwarza)
-        this.waitingQueue = new Map(); // guildId → [{userId, addedAt}] (uporządkowana kolejka FIFO)
-        this.queueReservation = new Map(); // guildId → {userId, expiresAt, timeout} (rezerwacja dla pierwszej osoby)
+        this.activeProcessing = new Map(); // guildId → userId (who is currently processing)
+        this.waitingQueue = new Map(); // guildId → [{userId, addedAt}] (ordered FIFO queue)
+        this.queueReservation = new Map(); // guildId → {userId, expiresAt, timeout} (reservation for first person)
     }
 
     /**
-     * Sprawdza czy ktoś obecnie przetwarza w danym guild
+     * Checks if someone is currently processing in a guild
      */
     isProcessingActive(guildId) {
         return this.activeProcessing.has(guildId);
     }
 
     /**
-     * Pobiera ID użytkownika który obecnie przetwarza
+     * Gets the user ID who is currently processing
      */
     getActiveProcessor(guildId) {
         return this.activeProcessing.get(guildId);
     }
 
     /**
-     * Ustawia aktywne przetwarzanie
+     * Sets active processing
      */
     setActiveProcessing(guildId, userId) {
         this.activeProcessing.set(guildId, userId);
-        logger.info(`[PHASE1] 🔒 Użytkownik ${userId} zablokował przetwarzanie dla guild ${guildId}`);
+        logger.info(`[PHASE1] 🔒 User ${userId} locked processing for guild ${guildId}`);
     }
 
     /**
-     * Dodaje użytkownika do kolejki czekających
+     * Adds user to waiting queue
      */
     async addToWaitingQueue(guildId, userId) {
         if (!this.waitingQueue.has(guildId)) {
@@ -51,56 +51,56 @@ class PhaseService {
 
         const queue = this.waitingQueue.get(guildId);
 
-        // Sprawdź czy użytkownik już jest w kolejce
+        // Check if user is already in queue
         if (queue.find(item => item.userId === userId)) {
-            logger.warn(`[QUEUE] ⚠️ Użytkownik ${userId} jest już w kolejce dla guild ${guildId}`);
+            logger.warn(`[QUEUE] ⚠️ User ${userId} is already in queue for guild ${guildId}`);
             return;
         }
 
         queue.push({ userId, addedAt: Date.now() });
         const position = queue.length;
 
-        logger.info(`[QUEUE] ➕ Użytkownik ${userId} dodany do kolejki (pozycja: ${position}) dla guild ${guildId}`);
+        logger.info(`[QUEUE] ➕ User ${userId} added to queue (position: ${position}) for guild ${guildId}`);
 
-        // Powiadom użytkownika o jego pozycji w kolejce
+        // Notify user about their queue position
         await this.notifyQueuePosition(guildId, userId, position);
     }
 
     /**
-     * Usuwa aktywne przetwarzanie i powiadamia czekających
+     * Clears active processing and notifies waiting users
      */
     async clearActiveProcessing(guildId) {
         this.activeProcessing.delete(guildId);
-        logger.info(`[PHASE] 🔓 Odblokowano przetwarzanie dla guild ${guildId}`);
+        logger.info(`[PHASE] 🔓 Unlocked processing for guild ${guildId}`);
 
-        // Sprawdź czy są osoby w kolejce
+        // Check if there are people in queue
         if (this.waitingQueue.has(guildId)) {
             const queue = this.waitingQueue.get(guildId);
 
             if (queue.length > 0) {
-                // Pobierz pierwszą osobę z kolejki
+                // Get first person from queue
                 const nextPerson = queue[0];
-                logger.info(`[QUEUE] 📢 Następna osoba w kolejce: ${nextPerson.userId}`);
+                logger.info(`[QUEUE] 📢 Next person in queue: ${nextPerson.userId}`);
 
-                // Stwórz rezerwację na 5 minut
+                // Create 5-minute reservation
                 await this.createQueueReservation(guildId, nextPerson.userId);
 
-                // Powiadom pozostałe osoby w kolejce o zmianie pozycji
+                // Notify remaining people in queue about position change
                 for (let i = 1; i < queue.length; i++) {
                     await this.notifyQueuePosition(guildId, queue[i].userId, i);
                 }
             } else {
-                // Brak osób w kolejce - wyczyść
+                // No people in queue - clear
                 this.waitingQueue.delete(guildId);
             }
         }
     }
 
     /**
-     * Tworzy rezerwację dla pierwszej osoby w kolejce (5 min)
+     * Creates reservation for first person in queue (5 min)
      */
     async createQueueReservation(guildId, userId) {
-        // Wyczyść poprzednią rezerwację jeśli istnieje
+        // Clear previous reservation if exists
         if (this.queueReservation.has(guildId)) {
             const oldReservation = this.queueReservation.get(guildId);
             if (oldReservation.timeout) {
@@ -108,72 +108,72 @@ class PhaseService {
             }
         }
 
-        const expiresAt = Date.now() + (5 * 60 * 1000); // 5 minut
+        const expiresAt = Date.now() + (5 * 60 * 1000); // 5 minutes
 
-        // Timeout który usuwa rezerwację i powiadamia następną osobę
+        // Timeout that removes reservation and notifies next person
         const timeout = setTimeout(async () => {
-            logger.warn(`[QUEUE] ⏰ Rezerwacja wygasła dla użytkownika ${userId}`);
+            logger.warn(`[QUEUE] ⏰ Reservation expired for user ${userId}`);
             await this.expireReservation(guildId, userId);
         }, 5 * 60 * 1000);
 
         this.queueReservation.set(guildId, { userId, expiresAt, timeout });
 
-        // Powiadom użytkownika że może użyć komendy
+        // Notify user they can use the command
         try {
             const user = await this.client.users.fetch(userId);
             const expiryTimestamp = Math.floor(expiresAt / 1000);
             await user.send({
                 embeds: [new EmbedBuilder()
-                    .setTitle('✅ Twoja kolej!')
-                    .setDescription(`Możesz teraz użyć komendy \`/faza1\` lub \`/faza2\`.\n\n⏱️ Masz czas do: <t:${expiryTimestamp}:R>\n\n⚠️ **Jeśli nie użyjesz komendy w ciągu 5 minut, Twoja kolej przepadnie.**`)
+                    .setTitle('✅ Your turn!')
+                    .setDescription(`You can now use the \`/faza1\` or \`/faza2\` command.\n\n⏱️ You have time until: <t:${expiryTimestamp}:R>\n\n⚠️ **If you don't use the command within 5 minutes, your turn will be forfeited.**`)
                     .setColor('#00FF00')
                     .setTimestamp()
                 ]
             });
-            logger.info(`[QUEUE] ✅ Powiadomiono użytkownika ${userId} o jego kolejce`);
+            logger.info(`[QUEUE] ✅ Notified user ${userId} about their turn`);
         } catch (error) {
-            logger.error(`[QUEUE] ❌ Nie udało się powiadomić użytkownika ${userId}:`, error.message);
+            logger.error(`[QUEUE] ❌ Failed to notify user ${userId}:`, error.message);
         }
     }
 
     /**
-     * Wygasa rezerwację i przechodzi do następnej osoby
+     * Expires reservation and moves to next person
      */
     async expireReservation(guildId, userId) {
-        // Usuń rezerwację
+        // Remove reservation
         this.queueReservation.delete(guildId);
 
-        // Usuń użytkownika z kolejki
+        // Remove user from queue
         if (this.waitingQueue.has(guildId)) {
             const queue = this.waitingQueue.get(guildId);
             const index = queue.findIndex(item => item.userId === userId);
 
             if (index !== -1) {
                 queue.splice(index, 1);
-                logger.info(`[QUEUE] ➖ Użytkownik ${userId} usunięty z kolejki (timeout)`);
+                logger.info(`[QUEUE] ➖ User ${userId} removed from queue (timeout)`);
 
-                // Powiadom użytkownika że stracił kolejkę
+                // Notify user they lost their turn
                 try {
                     const user = await this.client.users.fetch(userId);
                     await user.send({
                         embeds: [new EmbedBuilder()
-                            .setTitle('⏰ Czas minął')
-                            .setDescription('Nie użyłeś komendy w ciągu 5 minut. Twoja kolej przepadła.\n\nMożesz użyć komendy ponownie, aby dołączyć na koniec kolejki.')
+                            .setTitle('⏰ Time expired')
+                            .setDescription('You didn\'t use the command within 5 minutes. Your turn was forfeited.\n\nYou can use the command again to join at the end of the queue.')
                             .setColor('#FF0000')
                             .setTimestamp()
                         ]
                     });
                 } catch (error) {
-                    logger.error(`[QUEUE] ❌ Nie udało się powiadomić użytkownika ${userId} o wygaśnięciu:`, error.message);
+                    logger.error(`[QUEUE] ❌ Failed to notify user ${userId} about expiration:`, error.message);
                 }
             }
 
-            // Powiadom następną osobę jeśli jest
+            // Notify next person if available
             if (queue.length > 0) {
                 const nextPerson = queue[0];
                 await this.createQueueReservation(guildId, nextPerson.userId);
 
-                // Powiadom pozostałe osoby o zmianie pozycji
+                // Notify remaining people about position change
                 for (let i = 1; i < queue.length; i++) {
                     await this.notifyQueuePosition(guildId, queue[i].userId, i);
                 }
@@ -184,65 +184,65 @@ class PhaseService {
     }
 
     /**
-     * Powiadamia użytkownika o jego pozycji w kolejce
+     * Notifies user about their queue position
      */
     async notifyQueuePosition(guildId, userId, position) {
         try {
             const user = await this.client.users.fetch(userId);
             const activeUserId = this.activeProcessing.get(guildId);
 
-            let description = `Twoja pozycja w kolejce: **${position}**\n\n`;
+            let description = `Your position in queue: **${position}**\n\n`;
 
             if (activeUserId) {
                 try {
                     const activeUser = await this.client.users.fetch(activeUserId);
-                    description += `🔒 Obecnie używa: **${activeUser.username}**\n`;
+                    description += `🔒 Currently using: **${activeUser.username}**\n`;
                 } catch (err) {
-                    description += `🔒 Obecnie system jest zajęty\n`;
+                    description += `🔒 System is currently busy\n`;
                 }
             }
 
-            // Dodaj informację o osobach przed użytkownikiem
+            // Add info about people ahead of user
             if (this.waitingQueue.has(guildId)) {
                 const queue = this.waitingQueue.get(guildId);
                 const peopleAhead = queue.slice(0, position - 1);
 
                 if (peopleAhead.length > 0) {
-                    description += `\n👥 Przed Tobą w kolejce:\n`;
+                    description += `\n👥 Ahead of you in queue:\n`;
                     for (let i = 0; i < Math.min(peopleAhead.length, 3); i++) {
                         try {
                             const person = await this.client.users.fetch(peopleAhead[i].userId);
                             description += `${i + 1}. **${person.username}**\n`;
                         } catch (err) {
-                            description += `${i + 1}. *Użytkownik*\n`;
+                            description += `${i + 1}. *User*\n`;
                         }
                     }
 
                     if (peopleAhead.length > 3) {
-                        description += `... i ${peopleAhead.length - 3} innych\n`;
+                        description += `... and ${peopleAhead.length - 3} others\n`;
                     }
                 }
             }
 
-            description += `\n✅ Dostaniesz powiadomienie, gdy będzie Twoja kolej.`;
+            description += `\n✅ You'll receive a notification when it's your turn.`;
 
             await user.send({
                 embeds: [new EmbedBuilder()
-                    .setTitle('📋 Jesteś w kolejce')
+                    .setTitle('📋 You are in queue')
                     .setDescription(description)
                     .setColor('#FFA500')
                     .setTimestamp()
                 ]
             });
 
-            logger.info(`[QUEUE] 📬 Powiadomiono użytkownika ${userId} o pozycji ${position}`);
+            logger.info(`[QUEUE] 📬 Notified user ${userId} about position ${position}`);
         } catch (error) {
-            logger.error(`[QUEUE] ❌ Nie udało się powiadomić użytkownika ${userId} o pozycji:`, error.message);
+            logger.error(`[QUEUE] ❌ Failed to notify user ${userId} about position:`, error.message);
         }
     }
 
     /**
-     * Sprawdza czy użytkownik ma rezerwację
+     * Checks if user has reservation
      */
     hasReservation(guildId, userId) {
         if (!this.queueReservation.has(guildId)) {
@@ -253,7 +253,7 @@ class PhaseService {
     }
 
     /**
-     * Pobiera informacje o kolejce dla użytkownika (do wyświetlenia w kanale)
+     * Gets queue info for user (to display in channel)
      */
     async getQueueInfo(guildId, userId) {
         const activeUserId = this.activeProcessing.get(guildId);
@@ -263,24 +263,24 @@ class PhaseService {
 
         let description = '';
 
-        // Informacja o osobie obecnie używającej
+        // Info about currently using person
         if (activeUserId) {
             try {
                 const activeUser = await this.client.users.fetch(activeUserId);
-                description += `🔒 **Obecnie używa:** ${activeUser.username}\n\n`;
+                description += `🔒 **Currently using:** ${activeUser.username}\n\n`;
             } catch (err) {
-                description += `🔒 **System jest obecnie zajęty**\n\n`;
+                description += `🔒 **System is currently busy**\n\n`;
             }
         }
 
-        // Pozycja użytkownika
-        description += `📋 **Twoja pozycja w kolejce:** ${position}\n`;
-        description += `👥 **Łącznie osób w kolejce:** ${queue.length}\n\n`;
+        // User position
+        description += `📋 **Your position in queue:** ${position}\n`;
+        description += `👥 **Total people in queue:** ${queue.length}\n\n`;
 
-        // Lista osób przed użytkownikiem
+        // List of people ahead of user
         const peopleAhead = queue.slice(0, userIndex);
         if (peopleAhead.length > 0) {
-            description += `**Osoby przed Tobą:**\n`;
+            description += `**People ahead of you:**\n`;
             const displayLimit = Math.min(peopleAhead.length, 3);
 
             for (let i = 0; i < displayLimit; i++) {
@@ -288,26 +288,26 @@ class PhaseService {
                     const person = await this.client.users.fetch(peopleAhead[i].userId);
                     description += `${i + 1}. ${person.username}\n`;
                 } catch (err) {
-                    description += `${i + 1}. *Użytkownik*\n`;
+                    description += `${i + 1}. *User*\n`;
                 }
             }
 
             if (peopleAhead.length > 3) {
-                description += `... i ${peopleAhead.length - 3} innych\n`;
+                description += `... and ${peopleAhead.length - 3} others\n`;
             }
             description += `\n`;
         }
 
-        description += `✅ **Dostaniesz powiadomienie na priv** gdy będzie Twoja kolej.`;
+        description += `✅ **You'll receive a DM notification** when it's your turn.`;
 
         return { description, position, queueLength: queue.length };
     }
 
     /**
-     * Usuwa użytkownika z kolejki po użyciu komendy
+     * Removes user from queue after using command
      */
     removeFromQueue(guildId, userId) {
-        // Wyczyść rezerwację
+        // Clear reservation
         if (this.queueReservation.has(guildId)) {
             const reservation = this.queueReservation.get(guildId);
             if (reservation.userId === userId) {
@@ -315,18 +315,18 @@ class PhaseService {
                     clearTimeout(reservation.timeout);
                 }
                 this.queueReservation.delete(guildId);
-                logger.info(`[QUEUE] ✅ Usunięto rezerwację dla użytkownika ${userId}`);
+                logger.info(`[QUEUE] ✅ Removed reservation for user ${userId}`);
             }
         }
 
-        // Usuń z kolejki
+        // Remove from queue
         if (this.waitingQueue.has(guildId)) {
             const queue = this.waitingQueue.get(guildId);
             const index = queue.findIndex(item => item.userId === userId);
 
             if (index !== -1) {
                 queue.splice(index, 1);
-                logger.info(`[QUEUE] ➖ Użytkownik ${userId} usunięty z kolejki (rozpoczął używanie)`);
+                logger.info(`[QUEUE] ➖ User ${userId} removed from queue (started using)`);
             }
 
             if (queue.length === 0) {
@@ -336,18 +336,18 @@ class PhaseService {
     }
 
     /**
-     * Inicjalizuje folder tymczasowy
+     * Initializes temporary folder
      */
     async initTempDir() {
         try {
             await fs.mkdir(this.tempDir, { recursive: true });
         } catch (error) {
-            logger.error('[PHASE1] ❌ Błąd tworzenia folderu temp:', error);
+            logger.error('[PHASE1] ❌ Error creating temp folder:', error);
         }
     }
 
     /**
-     * Pobiera zdjęcie z URL i zapisuje lokalnie
+     * Downloads image from URL and saves locally
      */
     async downloadImage(url, sessionId, index) {
         await this.initTempDir();
@@ -362,7 +362,7 @@ class PhaseService {
 
                 fileStream.on('finish', () => {
                     fileStream.close();
-                    logger.info(`[PHASE1] 💾 Zapisano zdjęcie: ${filename}`);
+                    logger.info(`[PHASE1] 💾 Saved image: ${filename}`);
                     resolve(filepath);
                 });
 
@@ -376,7 +376,7 @@ class PhaseService {
     }
 
     /**
-     * Usuwa pliki sesji z temp
+     * Removes session files from temp
      */
     async cleanupSessionFiles(sessionId) {
         try {
@@ -386,15 +386,15 @@ class PhaseService {
             for (const file of sessionFiles) {
                 const filepath = path.join(this.tempDir, file);
                 await fs.unlink(filepath);
-                logger.info(`[PHASE1] 🗑️ Usunięto plik: ${file}`);
+                logger.info(`[PHASE1] 🗑️ Deleted file: ${file}`);
             }
         } catch (error) {
-            logger.error('[PHASE1] ❌ Błąd czyszczenia plików sesji:', error);
+            logger.error('[PHASE1] ❌ Error cleaning session files:', error);
         }
     }
 
     /**
-     * Tworzy nową sesję Fazy 1
+     * Creates new Phase 1 session
      */
     createSession(userId, guildId, channelId, phase = 1) {
         const sessionId = `${userId}_${Date.now()}`;
@@ -404,9 +404,9 @@ class PhaseService {
             userId,
             guildId,
             channelId,
-            phase, // 1 lub 2
-            currentRound: 1, // dla fazy 2: 1, 2 lub 3
-            roundsData: [], // dla fazy 2: dane z każdej rundy
+            phase, // 1 or 2
+            currentRound: 1, // for phase 2: 1, 2 or 3
+            roundsData: [], // for phase 2: data from each round
             processedImages: [], // [{imageUrl, results: [{nick, score}]}]
             aggregatedResults: new Map(), // nick → [scores]
             conflicts: [], // [{nick, values: [{value, count}]}]
@@ -414,32 +414,32 @@ class PhaseService {
             stage: 'awaiting_images', // 'awaiting_images' | 'confirming_complete' | 'resolving_conflicts' | 'final_confirmation'
             createdAt: Date.now(),
             timeout: null,
-            downloadedFiles: [], // ścieżki do pobranych plików
-            messageToDelete: null, // wiadomość ze zdjęciami do usunięcia
-            publicInteraction: null, // interakcja do aktualizacji postępu (PUBLICZNA)
-            roleNicksSnapshotPath: null // ścieżka do snapshotu nicków z roli
+            downloadedFiles: [], // paths to downloaded files
+            messageToDelete: null, // message with images to delete
+            publicInteraction: null, // interaction for progress updates (PUBLIC)
+            roleNicksSnapshotPath: null // path to role nicks snapshot
         };
 
         this.activeSessions.set(sessionId, session);
 
-        // Auto-cleanup po 15 minutach
+        // Auto-cleanup after 15 minutes
         session.timeout = setTimeout(() => {
             this.cleanupSession(sessionId);
         }, 15 * 60 * 1000);
 
-        logger.info(`[PHASE${phase}] 📝 Utworzono sesję: ${sessionId}`);
+        logger.info(`[PHASE${phase}] 📝 Created session: ${sessionId}`);
         return sessionId;
     }
 
     /**
-     * Pobiera sesję użytkownika
+     * Gets user session
      */
     getSession(sessionId) {
         return this.activeSessions.get(sessionId);
     }
 
     /**
-     * Pobiera sesję użytkownika po userId (ostatnia aktywna)
+     * Gets user session by userId (last active)
      */
     getSessionByUserId(userId) {
         for (const [sessionId, session] of this.activeSessions.entries()) {
@@ -451,7 +451,7 @@ class PhaseService {
     }
 
     /**
-     * Odnawia timeout sesji
+     * Refreshes session timeout
      */
     refreshSessionTimeout(sessionId) {
         const session = this.activeSessions.get(sessionId);
@@ -467,36 +467,36 @@ class PhaseService {
     }
 
     /**
-     * Usuwa sesję
+     * Removes session
      */
     async cleanupSession(sessionId) {
         const session = this.activeSessions.get(sessionId);
         if (!session) return;
 
-        logger.info(`[PHASE${session.phase || 1}] 🧹 Rozpoczynam czyszczenie sesji: ${sessionId}`);
+        logger.info(`[PHASE${session.phase || 1}] 🧹 Starting session cleanup: ${sessionId}`);
 
         if (session.timeout) {
             clearTimeout(session.timeout);
             session.timeout = null;
         }
 
-        // Zatrzymaj timer ghost pingów jeśli istnieje
+        // Stop ghost ping timer if exists
         if (session.pingTimer) {
             clearInterval(session.pingTimer);
             session.pingTimer = null;
-            logger.info(`[PHASE${session.phase || 1}] ⏹️ Zatrzymano timer ghost pingów dla sesji: ${sessionId}`);
+            logger.info(`[PHASE${session.phase || 1}] ⏹️ Stopped ghost ping timer for session: ${sessionId}`);
         }
 
-        // Usuń pliki z temp
+        // Remove files from temp
         await this.cleanupSessionFiles(sessionId);
 
-        // Usuń snapshot nicków jeśli istnieje
+        // Remove nicks snapshot if exists
         if (session.roleNicksSnapshotPath) {
             await this.ocrService.deleteRoleNicksSnapshot(session.roleNicksSnapshotPath);
             session.roleNicksSnapshotPath = null;
         }
 
-        // Wyczyść duże struktury danych z pamięci
+        // Clear large data structures from memory
         if (session.processedImages) {
             session.processedImages.length = 0;
             session.processedImages = null;
@@ -522,43 +522,43 @@ class PhaseService {
             session.downloadedFiles = null;
         }
 
-        // Odblokuj przetwarzanie dla tego guild
+        // Unlock processing for this guild
         await this.clearActiveProcessing(session.guildId);
 
-        // Usuń sesję z mapy
+        // Remove session from map
         this.activeSessions.delete(sessionId);
 
-        // Wymuś garbage collection jeśli dostępne (tylko w trybie --expose-gc)
+        // Force garbage collection if available (only in --expose-gc mode)
         if (global.gc) {
             global.gc();
-            logger.info(`[PHASE${session.phase || 1}] 🗑️ Sesja wyczyszczona, GC wywołany: ${sessionId}`);
+            logger.info(`[PHASE${session.phase || 1}] 🗑️ Session cleaned, GC called: ${sessionId}`);
         } else {
-            logger.info(`[PHASE${session.phase || 1}] 🗑️ Sesja wyczyszczona: ${sessionId}`);
+            logger.info(`[PHASE${session.phase || 1}] 🗑️ Session cleaned: ${sessionId}`);
         }
     }
 
     /**
-     * Przetwarza zdjęcia z dysku (już pobrane)
+     * Processes images from disk (already downloaded)
      */
     async processImagesFromDisk(sessionId, downloadedFiles, guild, member, publicInteraction) {
         const session = this.getSession(sessionId);
         if (!session) {
-            throw new Error('Sesja nie istnieje lub wygasła');
+            throw new Error('Session does not exist or has expired');
         }
 
         session.publicInteraction = publicInteraction;
 
-        logger.info(`[PHASE1] 🔄 Przetwarzanie ${downloadedFiles.length} zdjęć z dysku dla sesji ${sessionId}`);
+        logger.info(`[PHASE1] 🔄 Processing ${downloadedFiles.length} images from disk for session ${sessionId}`);
 
-        // Utwórz snapshot nicków z roli na początku
+        // Create nicks snapshot from role at the beginning
         const snapshotPath = path.join(this.tempDir, `role_nicks_snapshot_${sessionId}.json`);
         const snapshotCreated = await this.ocrService.saveRoleNicksSnapshot(guild, member, snapshotPath);
 
         if (snapshotCreated) {
             session.roleNicksSnapshotPath = snapshotPath;
-            logger.info(`[PHASE1] ✅ Snapshot nicków utworzony: ${snapshotPath}`);
+            logger.info(`[PHASE1] ✅ Nicks snapshot created: ${snapshotPath}`);
         } else {
-            logger.warn(`[PHASE1] ⚠️ Nie udało się utworzyć snapshotu - będzie używane pobieranie na żywo`);
+            logger.warn(`[PHASE1] ⚠️ Failed to create snapshot - live fetching will be used`);
         }
 
         const results = [];
@@ -569,37 +569,37 @@ class PhaseService {
             const attachment = fileData.originalAttachment;
 
             try {
-                // Aktualizuj postęp - ładowanie
+                // Update progress - loading
                 await this.updateProgress(session, {
                     currentImage: i + 1,
                     totalImages: totalImages,
                     stage: 'loading',
-                    action: 'Ładowanie zdjęcia'
+                    action: 'Loading image'
                 });
 
-                logger.info(`[PHASE1] 📷 Przetwarzanie zdjęcia ${i + 1}/${totalImages}: ${attachment.name}`);
+                logger.info(`[PHASE1] 📷 Processing image ${i + 1}/${totalImages}: ${attachment.name}`);
 
-                // Aktualizuj postęp - OCR
+                // Update progress - OCR
                 await this.updateProgress(session, {
                     currentImage: i + 1,
                     totalImages: totalImages,
                     stage: 'ocr',
-                    action: 'Rozpoznawanie tekstu (OCR)'
+                    action: 'Text recognition (OCR)'
                 });
 
-                // Przetwórz OCR z pliku lokalnego
+                // Process OCR from local file
                 const text = await this.ocrService.processImageFromFile(fileData.filepath);
 
-                // Aktualizuj postęp - ekstrakcja
+                // Update progress - extraction
                 await this.updateProgress(session, {
                     currentImage: i + 1,
                     totalImages: totalImages,
                     stage: 'extracting',
-                    action: 'Wyciąganie wyników graczy'
+                    action: 'Extracting player scores'
                 });
 
-                // Wyciągnij wszystkich graczy z wynikami (nie tylko zerami)
-                // Użyj snapshotu jeśli istnieje
+                // Extract all players with scores (not just zeros)
+                // Use snapshot if exists
                 const playersWithScores = await this.ocrService.extractAllPlayersWithScores(
                     text,
                     guild,
@@ -613,27 +613,27 @@ class PhaseService {
                     results: playersWithScores
                 });
 
-                // Dodaj do sesji
+                // Add to session
                 session.processedImages.push({
                     imageUrl: attachment.url,
                     imageName: attachment.name,
                     results: playersWithScores
                 });
 
-                // Aktualizuj postęp - agregacja
+                // Update progress - aggregation
                 await this.updateProgress(session, {
                     currentImage: i + 1,
                     totalImages: totalImages,
                     stage: 'aggregating',
-                    action: 'Agregacja wyników'
+                    action: 'Aggregating results'
                 });
 
-                // Tymczasowa agregacja dla statystyk postępu
+                // Temporary aggregation for progress stats
                 this.aggregateResults(session);
 
-                logger.info(`[PHASE1] ✅ Znaleziono ${playersWithScores.length} graczy na zdjęciu ${i + 1}`);
+                logger.info(`[PHASE1] ✅ Found ${playersWithScores.length} players on image ${i + 1}`);
             } catch (error) {
-                logger.error(`[PHASE1] ❌ Błąd przetwarzania zdjęcia ${i + 1}:`, error);
+                logger.error(`[PHASE1] ❌ Error processing image ${i + 1}:`, error);
                 results.push({
                     imageUrl: attachment.url,
                     imageName: attachment.name,
@@ -650,14 +650,14 @@ class PhaseService {
             }
         }
 
-        // Finalna agregacja
+        // Final aggregation
         this.aggregateResults(session);
 
         return results;
     }
 
     /**
-     * Aktualizuje postęp w publicznej wiadomości
+     * Updates progress in public message
      */
     async updateProgress(session, progress) {
         if (!session.publicInteraction) return;
@@ -666,24 +666,24 @@ class PhaseService {
             const { currentImage, totalImages, stage, action } = progress;
             const percent = Math.round((currentImage / totalImages) * 100);
 
-            // Oblicz statystyki
+            // Calculate statistics
             const uniqueNicks = session.aggregatedResults.size;
             const confirmedResults = Array.from(session.aggregatedResults.values())
                 .filter(scores => scores.length >= 2 && new Set(scores).size === 1).length;
             const unconfirmedResults = uniqueNicks - confirmedResults;
 
-            // Oblicz konflikty - nicki z różnymi wartościami
+            // Calculate conflicts - nicks with different values
             const conflictsCount = Array.from(session.aggregatedResults.values())
                 .filter(scores => new Set(scores).size > 1).length;
 
-            // Oblicz graczy z zerem - nicki, które mają przynajmniej jedną wartość 0
+            // Calculate players with zero - nicks that have at least one value of 0
             const playersWithZero = Array.from(session.aggregatedResults.entries())
                 .filter(([nick, scores]) => scores.some(score => score === 0 || score === '0'))
                 .length;
 
             const progressBar = this.createProgressBar(percent);
 
-            // Ikony dla różnych etapów
+            // Icons for different stages
             const stageIcons = {
                 'loading': '📥',
                 'ocr': '🔍',
@@ -692,66 +692,66 @@ class PhaseService {
             };
             const icon = stageIcons[stage] || '⚙️';
 
-            const phaseTitle = session.phase === 2 ? 'Faza 2' : 'Faza 1';
-            const roundText = session.phase === 2 ? ` - Runda ${session.currentRound}/3` : '';
+            const phaseTitle = session.phase === 2 ? 'Phase 2' : 'Phase 1';
+            const roundText = session.phase === 2 ? ` - Round ${session.currentRound}/3` : '';
 
             const embed = new EmbedBuilder()
-                .setTitle(`🔄 Przetwarzanie zdjęć - ${phaseTitle}${roundText}`)
-                .setDescription(`**Zdjęcie:** ${currentImage}/${totalImages}\n${icon} ${action}\n${progressBar} ${percent}%`)
+                .setTitle(`🔄 Processing images - ${phaseTitle}${roundText}`)
+                .setDescription(`**Image:** ${currentImage}/${totalImages}\n${icon} ${action}\n${progressBar} ${percent}%`)
                 .setColor('#FFA500')
                 .addFields(
-                    { name: '👥 Unikalnych nicków', value: uniqueNicks.toString(), inline: true },
-                    { name: '✅ Potwierdzone', value: confirmedResults.toString(), inline: true },
-                    { name: '❓ Niepotwierdzone', value: unconfirmedResults.toString(), inline: true },
-                    { name: '⚠️ Konflikty', value: conflictsCount.toString(), inline: true },
-                    { name: '🥚 Graczy z zerem', value: playersWithZero.toString(), inline: true }
+                    { name: '👥 Unique nicks', value: uniqueNicks.toString(), inline: true },
+                    { name: '✅ Confirmed', value: confirmedResults.toString(), inline: true },
+                    { name: '❓ Unconfirmed', value: unconfirmedResults.toString(), inline: true },
+                    { name: '⚠️ Conflicts', value: conflictsCount.toString(), inline: true },
+                    { name: '🥚 Players with zero', value: playersWithZero.toString(), inline: true }
                 )
                 .setTimestamp()
-                .setFooter({ text: 'Przetwarzanie...' });
+                .setFooter({ text: 'Processing...' });
 
-            // Spróbuj zaktualizować przez editReply
+            // Try to update via editReply
             try {
                 await session.publicInteraction.editReply({
                     embeds: [embed]
                 });
             } catch (editError) {
-                // Interakcja wygasła - anuluj sesję i odblokuj kolejkę
+                // Interaction expired - cancel session and unlock queue
                 if (editError.code === 10015 || editError.message?.includes('Unknown Webhook') || editError.message?.includes('Invalid Webhook Token')) {
-                    logger.warn('[PHASE] ⏰ Interakcja wygasła, anuluję sesję i odblokowuję kolejkę');
+                    logger.warn('[PHASE] ⏰ Interaction expired, cancelling session and unlocking queue');
 
-                    // Wyślij informację do kanału
+                    // Send info to channel
                     try {
                         const channel = await this.client.channels.fetch(session.channelId);
                         if (channel) {
                             await channel.send({
                                 embeds: [new EmbedBuilder()
-                                    .setTitle('⏰ Sesja wygasła')
-                                    .setDescription('❌ Sesja wygasła z powodu braku aktywności. Spróbuj ponownie.\n\nInterakcja Discord wygasła (max 15 minut). Dane nie zostały zapisane.')
+                                    .setTitle('⏰ Session expired')
+                                    .setDescription('❌ Session expired due to inactivity. Try again.\n\nDiscord interaction expired (max 15 minutes). Data was not saved.')
                                     .setColor('#FF0000')
                                     .setTimestamp()
                                 ]
                             });
                         }
                     } catch (channelError) {
-                        logger.error('[PHASE] Nie udało się wysłać informacji o wygaśnięciu sesji:', channelError.message);
+                        logger.error('[PHASE] Failed to send session expiration info:', channelError.message);
                     }
 
-                    // Wyczyść sesję i odblokuj przetwarzanie
+                    // Clean session and unlock processing
                     await this.cleanupSession(session.sessionId);
                     this.clearActiveProcessing(session.guildId);
 
-                    return; // Przerwij przetwarzanie
+                    return; // Stop processing
                 } else {
                     throw editError;
                 }
             }
         } catch (error) {
-            logger.error('[PHASE] ❌ Błąd aktualizacji postępu:', error.message);
+            logger.error('[PHASE] ❌ Error updating progress:', error.message);
         }
     }
 
     /**
-     * Tworzy pasek postępu
+     * Creates progress bar
      */
     createProgressBar(percent) {
         const filled = Math.round(percent / 5);
@@ -760,7 +760,7 @@ class PhaseService {
     }
 
     /**
-     * Agreguje wyniki ze wszystkich zdjęć
+     * Aggregates results from all images
      */
     aggregateResults(session) {
         session.aggregatedResults.clear();
@@ -780,21 +780,21 @@ class PhaseService {
             }
         }
 
-        logger.info(`[PHASE1] 📊 Zagregowano wyniki dla ${session.aggregatedResults.size} unikalnych nicków`);
+        logger.info(`[PHASE1] 📊 Aggregated results for ${session.aggregatedResults.size} unique nicks`);
     }
 
     /**
-     * Identyfikuje konflikty (różne wartości dla tego samego nicka)
+     * Identifies conflicts (different values for the same nick)
      */
     identifyConflicts(session) {
         session.conflicts = [];
 
         for (const [nick, scores] of session.aggregatedResults.entries()) {
-            // Sprawdź czy jest konflikt (różne wartości)
+            // Check if there's a conflict (different values)
             const uniqueScores = [...new Set(scores)];
 
             if (uniqueScores.length > 1) {
-                // Konflikt - policz wystąpienia każdej wartości
+                // Conflict - count occurrences of each value
                 const valueCounts = new Map();
                 for (const score of scores) {
                     valueCounts.set(score, (valueCounts.get(score) || 0) + 1);
@@ -802,36 +802,36 @@ class PhaseService {
 
                 const values = Array.from(valueCounts.entries())
                     .map(([value, count]) => ({ value, count }))
-                    .sort((a, b) => b.count - a.count); // Sortuj po liczbie wystąpień
+                    .sort((a, b) => b.count - a.count); // Sort by number of occurrences
 
-                // Autoakceptacja: jeśli najczęstsza wartość występuje 2+ razy i jest tylko jedna taka wartość
+                // Auto-accept: if most frequent value occurs 2+ times and there's only one such value
                 const valuesWithTwoOrMore = values.filter(v => v.count >= 2);
 
                 if (valuesWithTwoOrMore.length === 1) {
-                    // Tylko jedna wartość występuje 2+ razy - autoakceptuj ją
-                    logger.info(`[PHASE1] ✅ Autoakceptacja dla "${nick}": ${valuesWithTwoOrMore[0].value} (${valuesWithTwoOrMore[0].count}x)`);
+                    // Only one value occurs 2+ times - auto-accept it
+                    logger.info(`[PHASE1] ✅ Auto-accept for "${nick}": ${valuesWithTwoOrMore[0].value} (${valuesWithTwoOrMore[0].count}x)`);
                     session.resolvedConflicts.set(nick, valuesWithTwoOrMore[0].value);
                 } else {
-                    // Więcej niż jedna wartość występuje 2+ razy lub żadna nie występuje 2+ razy - wymagaj wyboru
+                    // More than one value occurs 2+ times or none occur 2+ times - require choice
                     session.conflicts.push({ nick, values });
                 }
             }
         }
 
-        logger.info(`[PHASE1] ❓ Zidentyfikowano ${session.conflicts.length} konfliktów wymagających wyboru`);
+        logger.info(`[PHASE1] ❓ Identified ${session.conflicts.length} conflicts requiring choice`);
         return session.conflicts;
     }
 
     /**
-     * Rozstrzyga konflikt dla danego nicka
+     * Resolves conflict for given nick
      */
     resolveConflict(session, nick, selectedValue) {
         session.resolvedConflicts.set(nick, selectedValue);
-        logger.info(`[PHASE1] ✅ Rozstrzygnięto konflikt dla "${nick}": ${selectedValue}`);
+        logger.info(`[PHASE1] ✅ Resolved conflict for "${nick}": ${selectedValue}`);
     }
 
     /**
-     * Pobiera następny nierozstrzygnięty konflikt
+     * Gets next unresolved conflict
      */
     getNextUnresolvedConflict(session) {
         for (const conflict of session.conflicts) {
@@ -843,7 +843,7 @@ class PhaseService {
     }
 
     /**
-     * Generuje finalne wyniki (po rozstrzygnięciu konfliktów)
+     * Generates final results (after resolving conflicts)
      */
     getFinalResults(session) {
         const finalResults = new Map();
@@ -852,15 +852,15 @@ class PhaseService {
             const uniqueScores = [...new Set(scores)];
 
             if (uniqueScores.length === 1) {
-                // Brak konfliktu - użyj jedynej wartości
+                // No conflict - use the only value
                 finalResults.set(nick, uniqueScores[0]);
             } else {
-                // Konflikt - użyj rozstrzygniętej wartości
+                // Conflict - use resolved value
                 const resolvedValue = session.resolvedConflicts.get(nick);
                 if (resolvedValue !== undefined) {
                     finalResults.set(nick, resolvedValue);
                 } else {
-                    logger.warn(`[PHASE1] ⚠️ Nierozstrzygnięty konflikt dla "${nick}", pomijam`);
+                    logger.warn(`[PHASE1] ⚠️ Unresolved conflict for "${nick}", skipping`);
                 }
             }
         }
@@ -869,7 +869,7 @@ class PhaseService {
     }
 
     /**
-     * Oblicza statystyki finalne
+     * Calculates final statistics
      */
     calculateStatistics(finalResults) {
         const uniqueNicks = finalResults.size;
@@ -900,23 +900,23 @@ class PhaseService {
     }
 
     /**
-     * Zapisuje wyniki do bazy danych
+     * Saves results to database
      */
     async saveFinalResults(session, finalResults, guild, createdBy) {
         const weekInfo = this.getCurrentWeekInfo();
 
-        logger.info(`[PHASE1] 💾 Zapisywanie wyników dla tygodnia ${weekInfo.weekNumber}/${weekInfo.year}, klan: ${session.clan}`);
+        logger.info(`[PHASE1] 💾 Saving results for week ${weekInfo.weekNumber}/${weekInfo.year}, clan: ${session.clan}`);
 
-        // Usuń stare dane jeśli istnieją
+        // Delete old data if exists
         await this.databaseService.deletePhase1DataForWeek(session.guildId, weekInfo.weekNumber, weekInfo.year, session.clan);
 
-        // Zapisz nowe dane
+        // Save new data
         const members = await guild.members.fetch();
         const savedCount = [];
         let isFirstSave = true;
 
         for (const [nick, score] of finalResults.entries()) {
-            // Znajdź członka Discord
+            // Find Discord member
             const member = members.find(m =>
                 m.displayName.toLowerCase() === nick.toLowerCase() ||
                 m.user.username.toLowerCase() === nick.toLowerCase()
@@ -936,22 +936,22 @@ class PhaseService {
                 savedCount.push(nick);
                 isFirstSave = false;
             } else {
-                logger.warn(`[PHASE1] ⚠️ Nie znaleziono członka Discord dla nicka: ${nick}`);
+                logger.warn(`[PHASE1] ⚠️ Discord member not found for nick: ${nick}`);
             }
         }
 
-        logger.info(`[PHASE1] ✅ Zapisano ${savedCount.length}/${finalResults.size} wyników`);
+        logger.info(`[PHASE1] ✅ Saved ${savedCount.length}/${finalResults.size} results`);
         return savedCount.length;
     }
 
     /**
-     * Pobiera informacje o bieżącym tygodniu (ISO week)
-     * MODYFIKACJA: Tydzień zaczyna się we wtorek zamiast w poniedziałek
+     * Gets current week info (ISO week)
+     * MODIFICATION: Week starts on Tuesday instead of Monday
      */
     getCurrentWeekInfo() {
         const now = new Date();
 
-        // Jeśli jest poniedziałek, użyj numeru tygodnia z poprzedniej niedzieli
+        // If it's Monday, use week number from previous Sunday
         const dayOfWeek = now.getDay();
         const dateForWeek = dayOfWeek === 1 ? new Date(now.getTime() - 24 * 60 * 60 * 1000) : now;
 
@@ -962,7 +962,7 @@ class PhaseService {
     }
 
     /**
-     * Oblicza numer tygodnia ISO
+     * Calculates ISO week number
      */
     getISOWeek(date) {
         const target = new Date(date.valueOf());
@@ -977,42 +977,42 @@ class PhaseService {
     }
 
     /**
-     * Tworzy embed z prośbą o zdjęcia
+     * Creates embed requesting images
      */
     createAwaitingImagesEmbed(phase = 1, round = null) {
-        const expiryTime = Date.now() + (15 * 60 * 1000); // 15 minut od teraz
+        const expiryTime = Date.now() + (15 * 60 * 1000); // 15 minutes from now
         const expiryTimestamp = Math.floor(expiryTime / 1000);
 
-        // Pobierz informacje o aktualnym tygodniu
+        // Get current week info
         const { weekNumber, year } = this.getCurrentWeekInfo();
 
-        let title = `📸 Faza ${phase} - Prześlij zdjęcia wyników`;
+        let title = `📸 Phase ${phase} - Submit result screenshots`;
         if (phase === 2 && round) {
-            title = `📸 Faza 2 - Runda ${round}/3 - Prześlij zdjęcia wyników`;
+            title = `📸 Phase 2 - Round ${round}/3 - Submit result screenshots`;
         }
 
         const embed = new EmbedBuilder()
             .setTitle(title)
             .setDescription(
-                `📅 **Tydzień:** ${weekNumber}/${year}\n\n` +
-                '**⚠️ WAŻNE - Zasady robienia screenów:**\n' +
-                '• Rób screeny **prosto i starannie**\n' +
-                '• Im więcej screenów (do 10), tym lepsza jakość odczytu\n' +
-                '• Jeśli nick pojawi się **przynajmniej 2x**, zwiększa to pewność danych\n' +
-                '• Unikaj rozmazanych lub przekrzywionych zdjęć\n\n' +
-                '**Możesz przesłać od 1 do 10 zdjęć w jednej wiadomości.**\n\n' +
-                `⏱️ Czas wygaśnięcia: <t:${expiryTimestamp}:R>`
+                `📅 **Week:** ${weekNumber}/${year}\n\n` +
+                '**⚠️ IMPORTANT - Screenshot guidelines:**\n' +
+                '• Take screenshots **straight and carefully**\n' +
+                '• More screenshots (up to 10) improve read quality\n' +
+                '• If a nick appears **at least 2x**, it increases data confidence\n' +
+                '• Avoid blurry or skewed images\n\n' +
+                '**You can submit from 1 to 10 images in one message.**\n\n' +
+                `⏱️ Expiration time: <t:${expiryTimestamp}:R>`
             )
             .setColor('#0099FF')
             .setTimestamp()
-            .setFooter({ text: 'Prześlij zdjęcia zwykłą wiadomością na tym kanale' });
+            .setFooter({ text: 'Submit images via a regular message in this channel' });
 
         const customIdPrefix = phase === 2 ? 'phase2' : 'phase1';
         const row = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`${customIdPrefix}_cancel_session`)
-                    .setLabel('❌ Anuluj')
+                    .setLabel('❌ Cancel')
                     .setStyle(ButtonStyle.Danger)
             );
 
@@ -1020,12 +1020,12 @@ class PhaseService {
     }
 
     /**
-     * Tworzy embed z potwierdzeniem przetworzonych zdjęć
+     * Creates embed confirming processed images
      */
     createProcessedImagesEmbed(processedCount, totalImages, phase = 1) {
         const embed = new EmbedBuilder()
-            .setTitle('✅ Zdjęcia przetworzone')
-            .setDescription(`Przetworzono **${processedCount}** zdjęć.\nŁącznie w sesji: **${totalImages}** zdjęć.`)
+            .setTitle('✅ Images processed')
+            .setDescription(`Processed **${processedCount}** images.\nTotal in session: **${totalImages}** images.`)
             .setColor('#00FF00')
             .setTimestamp();
 
@@ -1035,11 +1035,11 @@ class PhaseService {
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`${phasePrefix}_complete_yes`)
-                    .setLabel('✅ Tak, analizuj')
+                    .setLabel('✅ Yes, analyze')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
                     .setCustomId(`${phasePrefix}_complete_no`)
-                    .setLabel('➕ Dodaj więcej')
+                    .setLabel('➕ Add more')
                     .setStyle(ButtonStyle.Primary)
             );
 
@@ -1047,7 +1047,7 @@ class PhaseService {
     }
 
     /**
-     * Tworzy embed z konfliktem
+     * Creates conflict embed
      */
     createConflictEmbed(conflict, currentIndex, totalConflicts, phase = 1) {
         const valuesText = conflict.values
@@ -1055,11 +1055,11 @@ class PhaseService {
             .join('\n');
 
         const embed = new EmbedBuilder()
-            .setTitle(`❓ Konflikt ${currentIndex}/${totalConflicts}`)
-            .setDescription(`**Nick:** ${conflict.nick}\n\n**Odczytane wartości:**\n${valuesText}\n\nKtóra wartość jest prawidłowa?`)
+            .setTitle(`❓ Conflict ${currentIndex}/${totalConflicts}`)
+            .setDescription(`**Nick:** ${conflict.nick}\n\n**Read values:**\n${valuesText}\n\nWhich value is correct?`)
             .setColor('#FFA500')
             .setTimestamp()
-            .setFooter({ text: `Rozstrzyganie konfliktów • ${currentIndex} z ${totalConflicts}` });
+            .setFooter({ text: `Resolving conflicts • ${currentIndex} of ${totalConflicts}` });
 
         const row = new ActionRowBuilder();
         const phasePrefix = phase === 2 ? 'phase2' : 'phase1';
@@ -1080,52 +1080,52 @@ class PhaseService {
     }
 
     /**
-     * Tworzy embed z finalnym podsumowaniem
+     * Creates final summary embed
      */
     createFinalSummaryEmbed(stats, weekInfo, clan, phase = 1) {
         const clanName = this.config.roleDisplayNames[clan] || clan;
-        const phaseTitle = phase === 2 ? 'Faza 2' : 'Faza 1';
+        const phaseTitle = phase === 2 ? 'Phase 2' : 'Phase 1';
         const phasePrefix = phase === 2 ? 'phase2' : 'phase1';
 
         const fields = [];
 
-        // Dla Fazy 1 - pokaż wszystkie statystyki
+        // For Phase 1 - show all statistics
         if (phase === 1) {
             fields.push(
-                { name: '✅ Unikalnych nicków', value: stats.uniqueNicks.toString(), inline: true },
-                { name: '📈 Wynik powyżej 0', value: `${stats.aboveZero} osób`, inline: true },
-                { name: '⭕ Wynik równy 0', value: `${stats.zeroCount} osób`, inline: true },
-                { name: '🏆 Suma wyników TOP30', value: `${stats.top30Sum.toLocaleString('pl-PL')} punktów`, inline: false }
+                { name: '✅ Unique nicks', value: stats.uniqueNicks.toString(), inline: true },
+                { name: '📈 Score above 0', value: `${stats.aboveZero} people`, inline: true },
+                { name: '⭕ Score equal to 0', value: `${stats.zeroCount} people`, inline: true },
+                { name: '🏆 TOP30 score sum', value: `${stats.top30Sum.toLocaleString('en-US')} points`, inline: false }
             );
         } else if (phase === 2) {
-            // Dla Fazy 2 - pokaż sumę zer z 3 rund
+            // For Phase 2 - show sum of zeros from 3 rounds
             if (stats.totalZeroCount !== undefined) {
                 fields.push(
-                    { name: '⭕ Wynik = 0 (suma z 3 rund)', value: `${stats.totalZeroCount} wystąpień`, inline: false }
+                    { name: '⭕ Score = 0 (sum from 3 rounds)', value: `${stats.totalZeroCount} occurrences`, inline: false }
                 );
             }
         }
 
-        // Dla obu faz dodaj klan
-        fields.push({ name: '🎯 Analizowany klan', value: clanName, inline: false });
+        // For both phases add clan
+        fields.push({ name: '🎯 Analyzed clan', value: clanName, inline: false });
 
         const embed = new EmbedBuilder()
-            .setTitle(`📊 Podsumowanie ${phaseTitle} - Tydzień ${weekInfo.weekNumber}/${weekInfo.year}`)
-            .setDescription('Przeanalizowano wszystkie zdjęcia i rozstrzygnięto konflikty.')
+            .setTitle(`📊 ${phaseTitle} Summary - Week ${weekInfo.weekNumber}/${weekInfo.year}`)
+            .setDescription('Analyzed all images and resolved conflicts.')
             .setColor('#00FF00')
             .addFields(...fields)
             .setTimestamp()
-            .setFooter({ text: 'Czy zatwierdzić i zapisać dane?' });
+            .setFooter({ text: 'Confirm and save data?' });
 
         const row = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`${phasePrefix}_confirm_save`)
-                    .setLabel('🟢 Zatwierdź')
+                    .setLabel('🟢 Confirm')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
                     .setCustomId(`${phasePrefix}_cancel_save`)
-                    .setLabel('🔴 Anuluj')
+                    .setLabel('🔴 Cancel')
                     .setStyle(ButtonStyle.Danger)
             );
 
@@ -1133,7 +1133,7 @@ class PhaseService {
     }
 
     /**
-     * Tworzy embed z ostrzeżeniem o istniejących danych
+     * Creates warning embed about existing data
      */
     async createOverwriteWarningEmbed(guildId, weekInfo, clan, phase = 1, guild = null) {
         let existingData;
@@ -1149,57 +1149,57 @@ class PhaseService {
         }
 
         const createdDate = new Date(existingData.createdAt);
-        const dateStr = createdDate.toLocaleString('pl-PL');
+        const dateStr = createdDate.toLocaleString('en-US');
 
         const clanName = this.config.roleDisplayNames[clan] || clan;
 
         const fields = [
-            { name: '📅 Data zapisu', value: dateStr, inline: true }
+            { name: '📅 Save date', value: dateStr, inline: true }
         ];
 
-        // Dodaj informacje o twórcy jeśli dostępne
+        // Add creator info if available
         logger.info(`[PHASE${phase}] createdBy: ${existingData.createdBy}, guild: ${guild ? 'exists' : 'null'}`);
 
         if (existingData.createdBy && guild) {
             try {
                 const creator = await guild.members.fetch(existingData.createdBy);
-                fields.push({ name: '👤 Dodane przez', value: creator.displayName, inline: true });
-                logger.info(`[PHASE${phase}] Dodano pole 'Dodane przez': ${creator.displayName}`);
+                fields.push({ name: '👤 Added by', value: creator.displayName, inline: true });
+                logger.info(`[PHASE${phase}] Added 'Added by' field: ${creator.displayName}`);
             } catch (error) {
-                logger.warn(`[PHASE${phase}] Nie znaleziono użytkownika ${existingData.createdBy}:`, error.message);
+                logger.warn(`[PHASE${phase}] User ${existingData.createdBy} not found:`, error.message);
             }
         } else {
-            logger.warn(`[PHASE${phase}] Brak informacji o twórcy - createdBy: ${existingData.createdBy}, guild: ${guild ? 'exists' : 'null'}`);
+            logger.warn(`[PHASE${phase}] No creator info - createdBy: ${existingData.createdBy}, guild: ${guild ? 'exists' : 'null'}`);
         }
 
-        // Dodaj liczbę graczy tylko dla Fazy 1
+        // Add player count only for Phase 1
         if (phase === 1) {
-            fields.push({ name: '👥 Liczba graczy', value: existingData.playerCount.toString(), inline: true });
+            fields.push({ name: '👥 Player count', value: existingData.playerCount.toString(), inline: true });
         }
 
-        // Dodaj sumę TOP30 tylko dla Fazy 1
+        // Add TOP30 sum only for Phase 1
         if (phase === 1) {
-            fields.push({ name: '🏆 Suma TOP30', value: `${existingData.top30Sum.toLocaleString('pl-PL')} pkt`, inline: true });
+            fields.push({ name: '🏆 TOP30 sum', value: `${existingData.top30Sum.toLocaleString('en-US')} pts`, inline: true });
         }
 
         const embed = new EmbedBuilder()
-            .setTitle('⚠️ Dane już istnieją')
-            .setDescription(`Dane Fazy ${phase} dla tygodnia **${weekInfo.weekNumber}/${weekInfo.year}** (klan: **${clanName}**) już istnieją w bazie.`)
+            .setTitle('⚠️ Data already exists')
+            .setDescription(`Phase ${phase} data for week **${weekInfo.weekNumber}/${weekInfo.year}** (clan: **${clanName}**) already exists in the database.`)
             .setColor('#FF6600')
             .addFields(...fields)
             .setTimestamp()
-            .setFooter({ text: 'Czy chcesz nadpisać te dane?' });
+            .setFooter({ text: 'Do you want to overwrite this data?' });
 
         const customIdPrefix = phase === 2 ? 'phase2' : 'phase1';
         const row = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`${customIdPrefix}_overwrite_yes`)
-                    .setLabel('🔴 Nadpisz stare dane')
+                    .setLabel('🔴 Overwrite old data')
                     .setStyle(ButtonStyle.Danger),
                 new ButtonBuilder()
                     .setCustomId(`${customIdPrefix}_overwrite_no`)
-                    .setLabel('⚪ Anuluj')
+                    .setLabel('⚪ Cancel')
                     .setStyle(ButtonStyle.Secondary)
             );
 
@@ -1207,12 +1207,12 @@ class PhaseService {
     }
 
     /**
-     * Przechodzi do następnej rundy dla Fazy 2
+     * Proceeds to next round for Phase 2
      */
     startNextRound(session) {
-        // Zapisz dane z aktualnej rundy
+        // Save data from current round
         const finalResults = this.getFinalResults(session);
-        logger.info(`[PHASE2] 📊 Wyniki rundy ${session.currentRound}: ${finalResults.size} graczy`);
+        logger.info(`[PHASE2] 📊 Round ${session.currentRound} results: ${finalResults.size} players`);
 
         const roundData = {
             round: session.currentRound,
@@ -1220,9 +1220,9 @@ class PhaseService {
         };
         session.roundsData.push(roundData);
 
-        logger.info(`[PHASE2] ✅ Zakończono rundę ${session.currentRound}/3`);
+        logger.info(`[PHASE2] ✅ Finished round ${session.currentRound}/3`);
 
-        // Wyczyść dane do następnej rundy
+        // Clear data for next round
         session.processedImages = [];
         session.aggregatedResults = new Map();
         session.conflicts = [];
@@ -1231,34 +1231,34 @@ class PhaseService {
         session.currentRound++;
         session.stage = 'awaiting_images';
 
-        logger.info(`[PHASE2] 🔄 Rozpoczynam rundę ${session.currentRound}/3`);
+        logger.info(`[PHASE2] 🔄 Starting round ${session.currentRound}/3`);
     }
 
     /**
-     * Sumuje wyniki ze wszystkich rund dla Fazy 2
+     * Sums results from all rounds for Phase 2
      */
     sumPhase2Results(session) {
         const summedResults = new Map(); // nick → total score
 
-        logger.info(`[PHASE2] 🔢 Sumowanie wyników z ${session.roundsData.length} rund`);
+        logger.info(`[PHASE2] 🔢 Summing results from ${session.roundsData.length} rounds`);
 
-        // Sumuj wyniki ze wszystkich rund
+        // Sum results from all rounds
         for (const roundData of session.roundsData) {
             if (!roundData.results) {
-                logger.error(`[PHASE2] ❌ Brak wyników dla rundy ${roundData.round}`);
+                logger.error(`[PHASE2] ❌ Missing results for round ${roundData.round}`);
                 continue;
             }
 
             if (!(roundData.results instanceof Map)) {
-                logger.error(`[PHASE2] ❌ Wyniki rundy ${roundData.round} nie są Mapą:`, typeof roundData.results);
+                logger.error(`[PHASE2] ❌ Round ${roundData.round} results are not a Map:`, typeof roundData.results);
                 continue;
             }
 
-            logger.info(`[PHASE2] Runda ${roundData.round}: ${roundData.results.size} graczy`);
+            logger.info(`[PHASE2] Round ${roundData.round}: ${roundData.results.size} players`);
 
             for (const [nick, score] of roundData.results) {
                 if (score === null || score === undefined || isNaN(score)) {
-                    logger.warn(`[PHASE2] ⚠️ Nieprawidłowy wynik dla ${nick} w rundzie ${roundData.round}: ${score}`);
+                    logger.warn(`[PHASE2] ⚠️ Invalid score for ${nick} in round ${roundData.round}: ${score}`);
                     continue;
                 }
                 const currentScore = summedResults.get(nick) || 0;
@@ -1266,7 +1266,7 @@ class PhaseService {
             }
         }
 
-        logger.info(`[PHASE2] ✅ Suma wyników: ${summedResults.size} graczy`);
+        logger.info(`[PHASE2] ✅ Result sum: ${summedResults.size} players`);
         return summedResults;
     }
 }

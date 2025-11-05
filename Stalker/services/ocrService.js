@@ -21,9 +21,9 @@ class OCRService {
             if (this.config.ocr.saveProcessedImages) {
                 await fs.mkdir(this.processedDir, { recursive: true });
             }
-            logger.info('[OCR] ✅ Serwis OCR zainicjalizowany');
+            logger.info('[OCR] ✅ OCR service initialized');
         } catch (error) {
-            logger.error('[OCR] ❌ Błąd inicjalizacji OCR:', error);
+            logger.error('[OCR] ❌ OCR initialization error:', error);
         }
     }
 
@@ -32,8 +32,8 @@ class OCRService {
         let processedBuffer = null;
 
         try {
-            logger.info('Rozpoczęcie analizy OCR');
-            logger.info(`📷 Przetwarzanie obrazu: ${attachment.url}`);
+            logger.info('Starting OCR analysis');
+            logger.info(`📷 Processing image: ${attachment.url}`);
 
             const response = await fetch(attachment.url);
             const arrayBuffer = await response.arrayBuffer();
@@ -41,70 +41,70 @@ class OCRService {
 
             processedBuffer = await this.processImageWithSharp(buffer);
 
-            logger.info('Uruchamianie OCR');
+            logger.info('Running OCR');
             const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol', {
                 tessedit_char_whitelist: this.config.ocr.polishAlphabet
             });
 
-            logger.info('🔤 Odczytany tekst z OCR:');
+            logger.info('🔤 Text read from OCR:');
             const textLines = text.split('\n').filter(line => line.trim().length > 0);
             textLines.forEach((line, index) => {
                 logger.info(`${index + 1}: ${line.trim()}`);
             });
 
-            // Zwolnij pamięć
+            // Free memory
             buffer = null;
             processedBuffer = null;
 
             return text;
         } catch (error) {
-            logger.error('Błąd OCR');
-            logger.error('❌ Błąd podczas przetwarzania obrazu:', error);
+            logger.error('OCR error');
+            logger.error('❌ Error processing image:', error);
             throw error;
         } finally {
-            // Wymuś zwolnienie bufora z pamięci
+            // Force buffer release from memory
             buffer = null;
             processedBuffer = null;
         }
     }
 
     /**
-     * Przetwarza obraz z pliku lokalnego (dla Phase 1)
+     * Process image from local file (for Phase 1)
      */
     async processImageFromFile(filepath) {
         let imageBuffer = null;
         let processedBuffer = null;
 
         try {
-            logger.info(`[PHASE1] 📂 Przetwarzanie pliku: ${filepath}`);
+            logger.info(`[PHASE1] 📂 Processing file: ${filepath}`);
 
-            // Wczytaj plik z dysku
+            // Load file from disk
             const fs = require('fs').promises;
             imageBuffer = await fs.readFile(filepath);
 
             processedBuffer = await this.processImageWithSharp(imageBuffer);
 
-            logger.info('[PHASE1] 🔄 Uruchamianie OCR na pliku...');
+            logger.info('[PHASE1] 🔄 Running OCR on file...');
             const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol', {
                 tessedit_char_whitelist: this.config.ocr.polishAlphabet
             });
 
-            logger.info('[PHASE1] 🔤 Odczytany tekst z OCR:');
+            logger.info('[PHASE1] 🔤 Text read from OCR:');
             const textLines = text.split('\n').filter(line => line.trim().length > 0);
             textLines.forEach((line, index) => {
                 logger.info(`${index + 1}: ${line.trim()}`);
             });
 
-            // Zwolnij pamięć
+            // Free memory
             imageBuffer = null;
             processedBuffer = null;
 
             return text;
         } catch (error) {
-            logger.error('[PHASE1] ❌ Błąd podczas przetwarzania pliku:', error);
+            logger.error('[PHASE1] ❌ Error processing file:', error);
             throw error;
         } finally {
-            // Wymuś zwolnienie bufora z pamięci
+            // Force buffer release from memory
             imageBuffer = null;
             processedBuffer = null;
         }
@@ -173,45 +173,46 @@ class OCRService {
             
             return buffer;
         } catch (error) {
-            logger.error('❌ Błąd podczas przetwarzania obrazu:', error);
+            logger.error('❌ Error processing image:', error);
             throw error;
         }
     }
 
     async extractPlayersFromText(text, guild = null, requestingMember = null) {
         try {
-            logger.info('Analiza tekstu');
-            logger.info('🎯 Nowa logika: nick z roli → OCR → sprawdzanie końca linii...');
-            
+            logger.info('Text analysis');
+            logger.info('🎯 New logic: nick from role → OCR → checking line end...');
+
             if (!guild || !requestingMember) {
-                logger.error('❌ Brak guild lub requestingMember - nie można kontynuować');
+                logger.error('❌ Missing guild or requestingMember - cannot continue');
                 return [];
             }
-            
-            // Krok 1: Pobierz nicki z odpowiedniej roli
+
+            // Step 1: Get nicks from appropriate role
             const roleNicks = await this.getRoleNicks(guild, requestingMember);
             if (roleNicks.length === 0) {
-                logger.info('❌ Brak nicków z odpowiedniej roli');
+                logger.info('❌ No nicks from appropriate role');
                 return [];
             }
-            
-            logger.info(`👥 Znaleziono ${roleNicks.length} nicków z roli: ${roleNicks.map(n => n.displayName).join(', ')}`);
-            
-            // Krok 2: Przygotuj linie OCR
+
+            logger.info(`👥 Found ${roleNicks.length} nicks from role: ${roleNicks.map(n => n.displayName).join(', ')}`);
+
+            // Step 2: Prepare OCR lines
             const lines = text.split('\n').filter(line => line.trim().length > 0);
-            
-            // Oblicz średnią długość linii dla informacji
+
+            // Calculate average line length for information
             const avgLineLength = lines.reduce((sum, line) => sum + line.trim().length, 0) / lines.length;
-            logger.info(`📏 Średnia długość linii: ${avgLineLength.toFixed(1)} znaków`);
-            
-            // Analizuj wszystkie linie (usuń filtrowanie według średniej)
-            const validLines = lines.filter(line => line.trim().length >= 5); // Minimum 5 znaków
-            logger.info(`📋 Analizuję ${validLines.length}/${lines.length} linii (minimum 5 znaków)`);
-            
+            logger.info(`📏 Average line length: ${avgLineLength.toFixed(1)} characters`);
+
+            // Analyze all lines (remove filtering by average)
+            const validLines = lines.filter(line => line.trim().length >= 5); // Minimum 5 characters
+            logger.info(`📋 Analyzing ${validLines.length}/${lines.length} lines (minimum 5 characters)`);
+
+
             const confirmedPlayers = [];
-            const processedNicks = new Set(); // Śledzenie już przetworzonych nicków z zerem
-            
-            // Krok 3: Dla każdej linii znajdź najlepiej dopasowany nick z roli
+            const processedNicks = new Set(); // Track already processed nicks with zero
+
+            // Step 3: For each line find the best matching nick from role
             for (let i = 0; i < validLines.length; i++) {
                 const line = validLines[i];
                 const lineNumber = lines.findIndex(l => l.trim() === line.trim()) + 1;
@@ -274,7 +275,7 @@ class OCRService {
                             );
                             
                             if (containsAsFragment) {
-                                logger.info(`      ⚠️ Nick "${bestMatch.displayName}" wykryty jako fragment słowa "${words.find(w => w.includes(nickLower) && w !== nickLower)}", pomijam`);
+                                logger.info(`      ⚠️ Nick "${bestMatch.displayName}" detected as word fragment "${words.find(w => w.includes(nickLower) && w !== nickLower)}", skipping`);
                                 continue; // Pomiń to dopasowanie
                             }
                         }
@@ -344,14 +345,14 @@ class OCRService {
             }
             
             const resultNicks = confirmedPlayers.map(p => p.detectedNick);
-            
-            logger.info(`📊 PODSUMOWANIE ANALIZY OCR:`);
-            logger.info(`   🎯 Potwierdzonych graczy z zerem: ${confirmedPlayers.length}`);
-            logger.info(`   👥 Lista: ${resultNicks.join(', ')}`);
+
+            logger.info(`📊 OCR ANALYSIS SUMMARY:`);
+            logger.info(`   🎯 Confirmed players with zero: ${confirmedPlayers.length}`);
+            logger.info(`   👥 List: ${resultNicks.join(', ')}`);
             return resultNicks;
         } catch (error) {
-            logger.error('Błąd analizy tekstu');
-            logger.error('❌ Błąd analizy tekstu:', error);
+            logger.error('Text analysis error');
+            logger.error('❌ Text analysis error:', error);
             return [];
         }
     }
@@ -520,7 +521,7 @@ class OCRService {
             
             return bestMatch;
         } catch (error) {
-            logger.error('❌ Błąd wyszukiwania podobnego użytkownika:', error);
+            logger.error('❌ Error searching similar user:', error);
             return null;
         }
     }
@@ -584,37 +585,37 @@ class OCRService {
 
     async findUsersInGuild(guild, playerNames, requestingMember = null) {
         try {
-            logger.info('Wyszukiwanie użytkowników');
-            logger.info(`🏰 Serwer: ${guild.name}`);
-            logger.info(`🔍 Szukane nazwy: ${playerNames.join(', ')}`);
-            
+            logger.info('Searching for users');
+            logger.info(`🏰 Server: ${guild.name}`);
+            logger.info(`🔍 Searched names: ${playerNames.join(', ')}`);
+
             const foundUsers = [];
             const members = await guild.members.fetch();
-            logger.info(`👥 Znaleziono ${members.size} członków serwera`);
+            logger.info(`👥 Found ${members.size} server members`);
             
-            // Sprawdź czy użytkownik ma którejś z ról TARGET i ogranicz wyszukiwanie
+            // Check if user has any TARGET role and restrict search
             let restrictToRole = null;
             if (requestingMember) {
                 const targetRoleIds = Object.values(this.config.targetRoles);
                 for (const roleId of targetRoleIds) {
                     if (requestingMember.roles.cache.has(roleId)) {
                         restrictToRole = roleId;
-                        logger.info(`🎯 Ograniczam wyszukiwanie do roli: ${roleId}`);
+                        logger.info(`🎯 Restricting search to role: ${roleId}`);
                         break;
                     }
                 }
             }
-            
+
             for (const playerName of playerNames) {
                 const candidates = [];
-                
+
                 for (const [userId, member] of members) {
-                    // Jeśli jest ograniczenie do roli, sprawdź czy członek ma tę rolę
+                    // If restricted to role, check if member has that role
                     if (restrictToRole && !member.roles.cache.has(restrictToRole)) {
                         continue;
                     }
-                    
-                    // Sprawdź podobieństwo tylko z displayName (nick na serwerze)
+
+                    // Check similarity only with displayName (server nickname)
                     const displaySimilarity = calculateNameSimilarity(playerName, member.displayName);
                     
                     if (displaySimilarity >= 0.7) {
@@ -628,12 +629,13 @@ class OCRService {
                         });
                     }
                 }
-                
+
+
                 if (candidates.length > 0) {
-                    // Sortuj kandydatów według podobieństwa (najwyższe pierwsze)
+                    // Sort candidates by similarity (highest first)
                     candidates.sort((a, b) => b.similarity - a.similarity);
-                    
-                    // Wybierz najlepszego kandydata
+
+                    // Select best candidate
                     const bestMatch = candidates[0];
                     foundUsers.push({
                         userId: bestMatch.userId,
@@ -642,30 +644,30 @@ class OCRService {
                         displayName: bestMatch.displayName,
                         similarity: bestMatch.similarity
                     });
-                    
-                    logger.info(`✅ Dopasowano: ${playerName} -> ${bestMatch.member.displayName} - ${(bestMatch.similarity * 100).toFixed(1)}% podobieństwa`);
-                    
-                    // Pokaż alternatywnych kandydatów jeśli jest ich więcej
+
+                    logger.info(`✅ Matched: ${playerName} -> ${bestMatch.member.displayName} - ${(bestMatch.similarity * 100).toFixed(1)}% similarity`);
+
+                    // Show alternative candidates if there are more
                     if (candidates.length > 1) {
-                        logger.info(`   Alternatywni kandydaci:`);
+                        logger.info(`   Alternative candidates:`);
                         for (let i = 1; i < Math.min(candidates.length, 3); i++) {
                             const alt = candidates[i];
                             logger.info(`   - ${alt.member.displayName} - ${(alt.similarity * 100).toFixed(1)}%`);
                         }
                     }
                 } else {
-                    logger.info(`❌ Nie znaleziono kandydata z minimum 70% podobieństwa dla: ${playerName}`);
+                    logger.info(`❌ No candidate found with minimum 70% similarity for: ${playerName}`);
                 }
             }
-            
-            logger.info(`Dopasowano ${foundUsers.length}/${playerNames.length} użytkowników`);
+
+            logger.info(`Matched ${foundUsers.length}/${playerNames.length} users`);
             if (restrictToRole) {
-                logger.info(`🎯 Wyszukiwanie ograniczone do roli: ${restrictToRole}`);
+                logger.info(`🎯 Search restricted to role: ${restrictToRole}`);
             }
             return foundUsers;
         } catch (error) {
-            logger.error('Błąd wyszukiwania');
-            logger.error('❌ Błąd wyszukiwania użytkowników:', error);
+            logger.error('Search error');
+            logger.error('❌ User search error:', error);
             return [];
         }
     }
@@ -675,7 +677,7 @@ class OCRService {
             const targetRoleIds = Object.values(this.config.targetRoles);
             let userRoleId = null;
 
-            // Znajdź rolę użytkownika wykonującego polecenie
+            // Find the role of the user executing the command
             for (const roleId of targetRoleIds) {
                 if (requestingMember.roles.cache.has(roleId)) {
                     userRoleId = roleId;
@@ -684,32 +686,32 @@ class OCRService {
             }
 
             if (!userRoleId) {
-                logger.info('❌ Użytkownik nie posiada żadnej z ról TARGET');
+                logger.info('❌ User does not have any TARGET role');
                 return [];
             }
 
-            logger.info(`📥 Pobieranie członków z rolą ${userRoleId}...`);
+            logger.info(`📥 Fetching members with role ${userRoleId}...`);
 
-            // Retry logic z exponential backoff
+            // Retry logic with exponential backoff
             let members = null;
             let retryCount = 0;
             const maxRetries = 3;
 
             while (retryCount < maxRetries) {
                 try {
-                    members = await guild.members.fetch({ force: false }); // Użyj cache jeśli dostępny
-                    break; // Sukces - wyjdź z pętli
+                    members = await guild.members.fetch({ force: false }); // Use cache if available
+                    break; // Success - exit loop
                 } catch (fetchError) {
                     retryCount++;
-                    logger.warn(`⚠️ Próba ${retryCount}/${maxRetries} pobierania członków nie powiodła się: ${fetchError.message}`);
+                    logger.warn(`⚠️ Attempt ${retryCount}/${maxRetries} to fetch members failed: ${fetchError.message}`);
 
                     if (retryCount < maxRetries) {
                         // Exponential backoff: 1s, 2s, 4s
                         const delay = Math.pow(2, retryCount - 1) * 1000;
-                        logger.info(`⏳ Ponowna próba za ${delay}ms...`);
+                        logger.info(`⏳ Retrying in ${delay}ms...`);
                         await new Promise(resolve => setTimeout(resolve, delay));
                     } else {
-                        throw fetchError; // Ostatnia próba - wyrzuć błąd
+                        throw fetchError; // Last attempt - throw error
                     }
                 }
             }
@@ -726,13 +728,13 @@ class OCRService {
                 }
             }
 
-            logger.info(`👥 Znaleziono ${roleMembers.length} członków z rolą ${userRoleId}`);
+            logger.info(`👥 Found ${roleMembers.length} members with role ${userRoleId}`);
             return roleMembers;
         } catch (error) {
-            logger.error('❌ Błąd pobierania nicków z roli:');
-            logger.error(`   Typ błędu: ${error.name}`);
-            logger.error(`   Kod: ${error.code || 'brak'}`);
-            logger.error(`   Wiadomość: ${error.message}`);
+            logger.error('❌ Error fetching nicks from role:');
+            logger.error(`   Error type: ${error.name}`);
+            logger.error(`   Code: ${error.code || 'none'}`);
+            logger.error(`   Message: ${error.message}`);
             if (error.stack) {
                 logger.error(`   Stack trace: ${error.stack.split('\n').slice(0, 3).join('\n')}`);
             }
@@ -755,7 +757,7 @@ class OCRService {
             const roleNicks = await this.getRoleNicks(guild, requestingMember);
 
             if (roleNicks.length === 0) {
-                logger.warn('⚠️ Nie znaleziono członków z roli - snapshot będzie pusty');
+                logger.warn('⚠️ No role members found - snapshot will be empty');
             }
 
             // Zapisz do pliku z metadanymi
@@ -775,11 +777,11 @@ class OCRService {
             await fs.mkdir(dir, { recursive: true });
 
             await fs.writeFile(snapshotPath, JSON.stringify(snapshotData, null, 2), 'utf8');
-            logger.info(`✅ Zapisano snapshot ${roleNicks.length} członków do pliku`);
+            logger.info(`✅ Saved snapshot of ${roleNicks.length} members to file`);
 
             return true;
         } catch (error) {
-            logger.error('❌ Błąd zapisywania snapshotu nicków:', error);
+            logger.error('❌ Error saving nicks snapshot:', error);
             return false;
         }
     }
@@ -794,16 +796,16 @@ class OCRService {
             const fileContent = await fs.readFile(snapshotPath, 'utf8');
             const snapshotData = JSON.parse(fileContent);
 
-            logger.info(`📂 Załadowano snapshot ${snapshotData.count} członków z pliku (utworzony: ${new Date(snapshotData.timestamp).toLocaleString('pl-PL')})`);
+            logger.info(`📂 Loaded snapshot of ${snapshotData.count} members from file (created: ${new Date(snapshotData.timestamp).toLocaleString('en-US')})`);
 
-            // Zwróć w formacie zgodnym z getRoleNicks (bez obiektu member)
+            // Return in format compatible with getRoleNicks (without member object)
             return snapshotData.members.map(m => ({
                 userId: m.userId,
                 displayName: m.displayName,
-                member: null // snapshot nie zawiera pełnego obiektu member
+                member: null // snapshot doesn't contain full member object
             }));
         } catch (error) {
-            logger.error(`❌ Błąd ładowania snapshotu nicków z ${snapshotPath}:`, error);
+            logger.error(`❌ Error loading nicks snapshot from ${snapshotPath}:`, error);
             return [];
         }
     }
@@ -815,10 +817,10 @@ class OCRService {
     async deleteRoleNicksSnapshot(snapshotPath) {
         try {
             await fs.unlink(snapshotPath);
-            logger.info(`🗑️ Usunięto snapshot nicków: ${snapshotPath}`);
+            logger.info(`🗑️ Deleted nicks snapshot: ${snapshotPath}`);
         } catch (error) {
             if (error.code !== 'ENOENT') { // Ignoruj błąd jeśli plik nie istnieje
-                logger.warn(`⚠️ Błąd usuwania snapshotu ${snapshotPath}:`, error.message);
+                logger.warn(`⚠️ Error deleting snapshot ${snapshotPath}:`, error.message);
             }
         }
     }
@@ -1097,50 +1099,50 @@ class OCRService {
 
                 if (ageInHours > 1) {
                     await fs.unlink(filePath);
-                    logger.info(`[OCR] 🗑️ Usunięto stary plik tymczasowy: ${file}`);
+                    logger.info(`[OCR] 🗑️ Deleted old temporary file: ${file}`);
                 }
             }
         } catch (error) {
-            logger.error('[OCR] ❌ Błąd czyszczenia plików tymczasowych:', error);
+            logger.error('[OCR] ❌ Error cleaning temporary files:', error);
         }
     }
 
     /**
-     * Wyciąga wszystkich graczy z ich wynikami (nie tylko z zerem)
-     * Używane dla komendy /faza1
-     * @param {string} snapshotPath - Opcjonalna ścieżka do pliku snapshot z nickami
+     * Extract all players with their scores (not just zeros)
+     * Used for /phase1 command
+     * @param {string} snapshotPath - Optional path to nickname snapshot file
      */
     async extractAllPlayersWithScores(text, guild = null, requestingMember = null, snapshotPath = null) {
         try {
-            logger.info('[PHASE1] 🎯 Rozpoczynam ekstrakcję wszystkich graczy z wynikami...');
+            logger.info('[PHASE1] 🎯 Starting extraction of all players with scores...');
 
             if (!guild || !requestingMember) {
-                logger.error('[PHASE1] ❌ Brak guild lub requestingMember - nie można kontynuować');
+                logger.error('[PHASE1] ❌ Missing guild or requestingMember - cannot continue');
                 return [];
             }
 
-            // Pobierz nicki - ze snapshotu jeśli podano, lub z roli
+            // Get nicks - from snapshot if provided, or from role
             let roleNicks;
             if (snapshotPath) {
-                logger.info('[PHASE1] 📂 Używam snapshotu nicków zamiast pobierania na żywo');
+                logger.info('[PHASE1] 📂 Using nickname snapshot instead of live fetch');
                 roleNicks = await this.loadRoleNicksSnapshot(snapshotPath);
             } else {
-                logger.info('[PHASE1] 📥 Pobieranie nicków z roli (brak snapshotu)');
+                logger.info('[PHASE1] 📥 Fetching nicks from role (no snapshot)');
                 roleNicks = await this.getRoleNicks(guild, requestingMember);
             }
 
             if (roleNicks.length === 0) {
-                logger.info('[PHASE1] ❌ Brak nicków z odpowiedniej roli');
+                logger.info('[PHASE1] ❌ No nicks from appropriate role');
                 return [];
             }
 
-            logger.info(`[PHASE1] 👥 Znaleziono ${roleNicks.length} nicków z roli`);
+            logger.info(`[PHASE1] 👥 Found ${roleNicks.length} nicks from role`);
 
-            // Przygotuj linie OCR
+            // Prepare OCR lines
             const lines = text.split('\n').filter(line => line.trim().length > 0);
             const validLines = lines.filter(line => line.trim().length >= 5);
 
-            logger.info(`[PHASE1] 📋 Analizuję ${validLines.length}/${lines.length} linii`);
+            logger.info(`[PHASE1] 📋 Analyzing ${validLines.length}/${lines.length} lines`);
 
             const playersWithScores = [];
             const processedNicks = new Set();
@@ -1227,11 +1229,11 @@ class OCRService {
                 }
             }
 
-            logger.info(`[PHASE1] 📊 Znaleziono ${playersWithScores.length} graczy z wynikami`);
+            logger.info(`[PHASE1] 📊 Found ${playersWithScores.length} players with scores`);
             return playersWithScores;
 
         } catch (error) {
-            logger.error('[PHASE1] ❌ Błąd ekstrakcji graczy z wynikami:', error);
+            logger.error('[PHASE1] ❌ Error extracting players with scores:', error);
             return [];
         }
     }

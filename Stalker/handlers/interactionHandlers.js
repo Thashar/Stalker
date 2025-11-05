@@ -321,9 +321,9 @@ async function handlePointsCommand(interaction, config, databaseService, punishm
     
     try {
         if (amount === null || amount === undefined) {
-            // Usuń użytkownika z systemu
+            // Remove user from system
             await databaseService.deleteUser(interaction.guild.id, user.id);
-            await interaction.editReply({ content: `✅ Removed user ${user} z systemu punishment points.` });
+            await interaction.editReply({ content: `✅ Removed user ${user} from punishment points system.` });
         } else if (amount > 0) {
             // Add points
             await punishmentService.addPointsManually(interaction.guild, user.id, amount);
@@ -356,11 +356,11 @@ async function handleDebugRolesCommand(interaction, config) {
     
     // Refresh member cache before checking roles
     try {
-        logger.info('🔄 Odświeżanie cache\'u członków for debug-roles...');
+        logger.info('🔄 Refreshing member cache for debug-roles...');
         await interaction.guild.members.fetch();
         logger.info('✅ Member cache refreshed');
     } catch (error) {
-        logger.error('❌ Błąd odświeżania cache\'u:', error);
+        logger.error('❌ Cache refresh error:', error);
     }
     
     try {
@@ -383,7 +383,7 @@ async function handleDebugRolesCommand(interaction, config) {
             let count = 0;
             for (const [userId, member] of sortedMembers) {
                 if (count >= 50) { // Limit for embed
-                    membersList += `\n... i ${members.size - count} więcej`;
+                    membersList += `\n... and ${members.size - count} more`;
                     break;
                 }
                 membersList += `${count + 1}. ${member.displayName}\n`;
@@ -417,7 +417,7 @@ async function handleDebugRolesCommand(interaction, config) {
         await interaction.editReply({ embeds: [embed] });
     } catch (error) {
         logger.error('[DEBUG] ❌ /debug-roles command error:', error);
-        await interaction.editReply({ content: 'An error occurred podczas debugowania ról.' });
+        await interaction.editReply({ content: 'An error occurred while debugging roles.' });
     }
 }
 
@@ -467,13 +467,13 @@ async function handleButton(interaction, sharedState) {
     // Handle build pagination buttons
     if (interaction.customId === 'statystyki_page' || interaction.customId === 'ekwipunek_page' || interaction.customId === 'tech_party_page' || interaction.customId === 'survivor_page' || interaction.customId === 'legend_colls_page' || interaction.customId === 'epic_colls_page' || interaction.customId === 'custom_sets_page' || interaction.customId === 'pets_page') {
         if (!sharedState.buildPagination) {
-            await interaction.reply({ content: '❌ Sesja paginacji wygasła.', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: '❌ Pagination session expired.', flags: MessageFlags.Ephemeral });
             return;
         }
 
         const paginationData = sharedState.buildPagination.get(interaction.message.id);
         if (!paginationData) {
-            await interaction.reply({ content: '❌ Not found danych paginacji.', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: '❌ Pagination data not found.', flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -509,7 +509,7 @@ async function handleButton(interaction, sharedState) {
 
         const navigationButtons = survivorService.createNavigationButtons(newPage);
 
-        // Zaktualizuj footer WSZYSTKICH embedów z nowym timestampem i oglądającym
+        // Update footer of ALL embeds with new timestamp and viewer
         const viewerDisplayName = interaction.member?.displayName || interaction.user.username;
 
         // Calculate exact deletion time
@@ -546,7 +546,7 @@ async function handleButton(interaction, sharedState) {
         return;
     }
 
-    // Obsługa przycisku "Usuń" for embedów buildu
+    // Handle "Delete" button for build embeds
     if (interaction.customId === 'delete_embed') {
         // After bot restart, there's no pagination data in RAM, but message still exists
         // Allow message deletion if user is its owner (check by embed footer or other methods)
@@ -598,7 +598,7 @@ async function handleButton(interaction, sharedState) {
         } catch (error) {
             logger.error(`❌ Embed deletion error: ${error.message}`);
             await interaction.reply({
-                content: '❌ An error occurred podczas usuwania embeda.',
+                content: '❌ An error occurred while deleting embed.',
                 flags: MessageFlags.Ephemeral
             });
         }
@@ -654,8 +654,8 @@ async function handleButton(interaction, sharedState) {
                         embeds: [punishConfirmation],
                         components: []
                     });
-                    
-                    // Oryginalny embed format for publicznej wiadomości
+
+                    // Original embed format for public message
                     const processedUsers = [];
                     let addedPoints = 0;
                     
@@ -679,11 +679,11 @@ async function handleButton(interaction, sharedState) {
                             { name: '✅ Matched and added points', value: processedUsers.length > 0 ? processedUsers.join('\n') : 'Brak', inline: false },
                             { name: '📈 Added points', value: addedPoints.toString(), inline: true },
                             { name: '🎭 Punishment role (2+ pts)', value: `<@&${data.config.punishmentRoleId}>`, inline: true },
-                            { name: '🚨 Rola karania (3+ pkt)', value: `<@&${data.config.lotteryBanRoleId}>`, inline: true }
+                            { name: '🚨 Lottery ban role (3+ pts)', value: `<@&${data.config.lotteryBanRoleId}>`, inline: true }
                         )
                         .setImage(data.imageUrl)
                         .setTimestamp()
-                        .setFooter({ text: `Analyzed by ${interaction.user.tag} | 🎭 = rola karania (2+ pkt) | 🚨 = rola karania (3+ pkt) | 📢 = ostrzeżenie wysłane` });
+                        .setFooter({ text: `Analyzed by ${interaction.user.tag} | 🎭 = punishment role (2+ pts) | 🚨 = lottery ban role (3+ pts) | 📢 = warning sent` });
                     
                     await interaction.followUp({ 
                         embeds: [punishEmbed],
@@ -728,7 +728,7 @@ async function handleButton(interaction, sharedState) {
                             timeDisplay = `${minutes}m`;
                         }
                     } else {
-                        timeDisplay = 'Deadline minął!';
+                        timeDisplay = 'Deadline passed!';
                     }
                     
                     const matchedUsers = data.foundUsers.map(user => `${user.member} (${user.matchedName})`);
@@ -739,14 +739,14 @@ async function handleButton(interaction, sharedState) {
                         .setColor('#ffa500')
                         .addFields(
                             { name: '📷 Found players with score 0', value: `\`${data.zeroScorePlayers.join(', ')}\``, inline: false },
-                            { name: '📢 Sent reminders to', value: matchedUsers.length > 0 ? matchedUsers.join('\n') : 'Brak', inline: false },
+                            { name: '📢 Sent reminders to', value: matchedUsers.length > 0 ? matchedUsers.join('\n') : 'None', inline: false },
                             { name: '⏰ Time remaining until 17:50', value: timeDisplay, inline: true },
                             { name: '📤 Sent messages', value: reminderResult.sentMessages.toString(), inline: true },
                             { name: '📢 To channels', value: reminderResult.roleGroups.toString(), inline: true }
                         )
                         .setImage(data.imageUrl)
                         .setTimestamp()
-                        .setFooter({ text: `Reminder sent przez ${interaction.user.tag} | Boss deadline: 17:50` });
+                        .setFooter({ text: `Reminder sent by ${interaction.user.tag} | Boss deadline: 17:50` });
                     
                     await interaction.followUp({ 
                         embeds: [reminderEmbed],
@@ -761,7 +761,7 @@ async function handleButton(interaction, sharedState) {
         }
     } else if (interaction.customId.startsWith('vacation_')) {
         const parts = interaction.customId.split('_');
-        const choice = parts[1]; // 'yes' lub 'no'
+        const choice = parts[1]; // 'yes' or 'no'
         const vacationId = parts[2];
         
         const data = confirmationData.get(vacationId);
@@ -783,9 +783,9 @@ async function handleButton(interaction, sharedState) {
         if (choice === 'no') {
             // Remove vacation takers from list
             finalPlayers = data.allPlayers.filter(player => !data.playersWithVacation.includes(player));
-            logger.info(`🏖️ Removed urlopowiczów z listy: ${data.playersWithVacation.join(', ')}`);
+            logger.info(`🏖️ Removed vacation takers from list: ${data.playersWithVacation.join(', ')}`);
         } else {
-            logger.info(`🏖️ Urlopowicze zostają w liście: ${data.playersWithVacation.join(', ')}`);
+            logger.info(`🏖️ Vacation takers remain in list: ${data.playersWithVacation.join(', ')}`);
         }
         
         if (finalPlayers.length === 0) {
@@ -800,7 +800,7 @@ async function handleButton(interaction, sharedState) {
         await checkUncertainResultsWithUpdate(interaction, finalPlayers, data.imageUrl, data.config, data.punishmentService, data.ocrText);
     } else if (interaction.customId.startsWith('uncertainty_')) {
         const parts = interaction.customId.split('_');
-        const choice = parts[1]; // 'yes' lub 'no'
+        const choice = parts[1]; // 'yes' or 'no'
         const uncertaintyId = parts[2];
         
         const data = confirmationData.get(uncertaintyId);
@@ -822,9 +822,9 @@ async function handleButton(interaction, sharedState) {
         if (choice === 'no') {
             // Remove uncertain results from list
             finalPlayers = data.allPlayers.filter(player => !data.uncertainPlayers.includes(player));
-            logger.info(`❓ Removed niepewne wyniki z listy: ${data.uncertainPlayers.join(', ')}`);
+            logger.info(`❓ Removed uncertain results from list: ${data.uncertainPlayers.join(', ')}`);
         } else {
-            logger.info(`❓ Niepewne wyniki zostają w liście: ${data.uncertainPlayers.join(', ')}`);
+            logger.info(`❓ Uncertain results remain in list: ${data.uncertainPlayers.join(', ')}`);
         }
         
         if (finalPlayers.length === 0) {
@@ -857,16 +857,16 @@ async function handleButton(interaction, sharedState) {
             embeds: []
         });
     } else if (interaction.customId === 'phase1_overwrite_yes' || interaction.customId === 'phase1_overwrite_no') {
-        // Obsługa przycisków nadpisywania danych Phase 1
+        // Handle Phase 1 data overwrite buttons
         await handlePhase1OverwriteButton(interaction, sharedState);
     } else if (interaction.customId === 'phase1_complete_yes' || interaction.customId === 'phase1_complete_no' || interaction.customId === 'phase1_cancel_session') {
-        // Obsługa przycisków potwierdzenia zakończenia dodawania zdjęć i anulowania
+        // Handle photo completion confirmation and cancellation buttons
         await handlePhase1CompleteButton(interaction, sharedState);
     } else if (interaction.customId.startsWith('phase1_resolve_')) {
-        // Obsługa przycisków rozstrzygania konfliktów
+        // Handle conflict resolution buttons
         await handlePhase1ConflictResolveButton(interaction, sharedState);
     } else if (interaction.customId === 'phase1_confirm_save' || interaction.customId === 'phase1_cancel_save') {
-        // Obsługa przycisków finalnego potwierdzenia zapisu
+        // Handle final save confirmation buttons
         await handlePhase1FinalConfirmButton(interaction, sharedState);
     } else if (interaction.customId.startsWith('modify_confirm_') || interaction.customId === 'modify_cancel') {
         await handleModifyConfirmButton(interaction, sharedState);
@@ -896,11 +896,11 @@ function hasPermission(member, allowedRoles) {
 }
 
 /**
- * Wysyła "ghost ping" - wiadomość z pingiem, która jest usuwana po 5 sekundach
- * Jeśli użytkownik nie kliknie przycisku, ping jest ponawiany co 30 sekund
- * @param {Object} channel - Kanał Discord
- * @param {string} userId - ID użytkownika do pingowania
- * @param {Object} session - Sesja phaseService (opcjonalne - do zapisywania timerów)
+ * Sends "ghost ping" - a message with ping that is deleted after 5 seconds
+ * If user doesn't click button, ping is repeated every 30 seconds
+ * @param {Object} channel - Discord channel
+ * @param {string} userId - User ID to ping
+ * @param {Object} session - phaseService session (optional - for saving timers)
  */
 async function sendGhostPing(channel, userId, session = null) {
     try {
@@ -908,12 +908,12 @@ async function sendGhostPing(channel, userId, session = null) {
             content: `<@${userId}> Image analysis completed, continue!`
         });
 
-        // Delete message po 5 sekundach
+        // Delete message after 5 seconds
         setTimeout(async () => {
             try {
                 await pingMessage.delete();
             } catch (error) {
-                logger.error('[GHOST_PING] ❌ Nie udało się usunąć ghost pingu:', error.message);
+                logger.error('[GHOST_PING] ❌ Failed to delete ghost ping:', error.message);
             }
         }, 5000);
 
@@ -937,7 +937,7 @@ async function sendGhostPing(channel, userId, session = null) {
                         try {
                             await repeatPingMessage.delete();
                         } catch (error) {
-                            logger.error('[GHOST_PING] ❌ Nie udało się usunąć powtarzanego ghost pingu:', error.message);
+                            logger.error('[GHOST_PING] ❌ Failed to delete repeated ghost ping:', error.message);
                         }
                     }, 5000);
 
@@ -945,9 +945,9 @@ async function sendGhostPing(channel, userId, session = null) {
                 } catch (error) {
                     logger.error('[GHOST_PING] ❌ Error while repeating ghost ping:', error.message);
                 }
-            }, 30000); // 30 sekund
+            }, 30000); // 30 seconds
 
-            logger.info(`[GHOST_PING] ⏰ Ustawiono timer ponawiania pingów co 30s for sesji ${session.sessionId}`);
+            logger.info(`[GHOST_PING] ⏰ Set timer for repeating pings every 30s for session ${session.sessionId}`);
         }
     } catch (error) {
         logger.error('[GHOST_PING] ❌ Ghost ping sending error:', error.message);
@@ -955,14 +955,14 @@ async function sendGhostPing(channel, userId, session = null) {
 }
 
 /**
- * Zatrzymuje ponawianie ghost pingów for sesji
- * @param {Object} session - Sesja phaseService
+ * Stops repeating ghost pings for session
+ * @param {Object} session - phaseService session
  */
 function stopGhostPing(session) {
     if (session && session.pingTimer) {
         clearInterval(session.pingTimer);
         session.pingTimer = null;
-        logger.info(`[GHOST_PING] ⏹️ Zatrzymano ponawianie ghost pingów for sesji ${session.sessionId}`);
+        logger.info(`[GHOST_PING] ⏹️ Stopped repeating ghost pings for session ${session.sessionId}`);
     }
 }
 
@@ -1137,7 +1137,7 @@ async function checkVacationsBeforeConfirmation(interaction, zeroScorePlayers, i
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
     
     try {
-        logger.info(`🏖️ Rozpoczynam sprawdzanie urlopów for ${zeroScorePlayers.length} players`);
+        logger.info(`🏖️ Starting vacation check for ${zeroScorePlayers.length} players`);
         
         const vacationChannel = await interaction.guild.channels.fetch(vacationChannelId);
         if (!vacationChannel) {
@@ -1194,7 +1194,7 @@ async function checkVacationsBeforeConfirmation(interaction, zeroScorePlayers, i
             await showFinalConfirmation(interaction, zeroScorePlayers, imageUrl, config, punishmentService);
         } catch (fallbackError) {
             logger.error('❌ Fallback confirmation error:', fallbackError.message);
-            await interaction.editReply('❌ An error occurred podczas sprawdzania urlopów.');
+            await interaction.editReply('❌ An error occurred while sprawdzania urlopów.');
         }
     }
 }
@@ -1411,7 +1411,7 @@ async function showVacationQuestion(interaction, playersWithVacation, allPlayers
 async function showFinalConfirmation(interaction, finalPlayers, imageUrl, config, punishmentService) {
     const confirmationId = Date.now().toString();
     
-    // Konwertuj nicki na obiekty z członkami for punishmentService
+    // Convert nicks to objects with members for punishmentService
     const foundUserObjects = [];
     for (const nick of finalPlayers) {
         const member = interaction.guild.members.cache.find(m => 
@@ -1427,7 +1427,7 @@ async function showFinalConfirmation(interaction, finalPlayers, imageUrl, config
         }
     }
     
-    // Zapisz dane do mapy
+    // Save data to map
     confirmationData.set(confirmationId, {
         action: 'punish',
         foundUsers: foundUserObjects,
@@ -1438,7 +1438,7 @@ async function showFinalConfirmation(interaction, finalPlayers, imageUrl, config
         punishmentService: punishmentService
     });
     
-    // Usuń dane po 5 minut
+    // Remove data after 5 minutes
     setTimeout(() => {
         confirmationData.delete(confirmationId);
     }, 5 * 60 * 1000);
@@ -1457,11 +1457,11 @@ async function showFinalConfirmation(interaction, finalPlayers, imageUrl, config
         .addComponents(confirmButton, cancelButton);
     
     const confirmationEmbed = new EmbedBuilder()
-        .setTitle('⚖️ Potwierdzenie dodania punishment points')
+        .setTitle('⚖️ Confirmation of Adding Punishment Points')
         .setDescription('Do you want to add punishment points for the found players?')
         .setColor('#ff6b6b')
         .addFields(
-            { name: `✅ Znaleziono ${finalPlayers.length} players with ZERO score`, value: `\`${finalPlayers.join(', ')}\``, inline: false }
+            { name: `✅ Found ${finalPlayers.length} players with ZERO score`, value: `\`${finalPlayers.join(', ')}\``, inline: false }
         )
         .setImage(imageUrl)
         .setTimestamp()
@@ -1476,7 +1476,7 @@ async function showFinalConfirmation(interaction, finalPlayers, imageUrl, config
 async function showFinalConfirmationWithUpdate(interaction, finalPlayers, imageUrl, config, punishmentService) {
     const confirmationId = Date.now().toString();
     
-    // Konwertuj nicki na obiekty z członkami for punishmentService
+    // Convert nicks to objects with members for punishmentService
     const foundUserObjects = [];
     for (const nick of finalPlayers) {
         const member = interaction.guild.members.cache.find(m => 
@@ -1492,7 +1492,7 @@ async function showFinalConfirmationWithUpdate(interaction, finalPlayers, imageU
         }
     }
     
-    // Zapisz dane do mapy
+    // Save data to map
     confirmationData.set(confirmationId, {
         action: 'punish',
         foundUsers: foundUserObjects,
@@ -1503,7 +1503,7 @@ async function showFinalConfirmationWithUpdate(interaction, finalPlayers, imageU
         punishmentService: punishmentService
     });
     
-    // Usuń dane po 5 minut
+    // Remove data after 5 minutes
     setTimeout(() => {
         confirmationData.delete(confirmationId);
     }, 5 * 60 * 1000);
@@ -1522,11 +1522,11 @@ async function showFinalConfirmationWithUpdate(interaction, finalPlayers, imageU
         .addComponents(confirmButton, cancelButton);
     
     const confirmationEmbed = new EmbedBuilder()
-        .setTitle('⚖️ Potwierdzenie dodania punishment points')
+        .setTitle('⚖️ Confirmation of Adding Punishment Points')
         .setDescription('Do you want to add punishment points for the found players?')
         .setColor('#ff6b6b')
         .addFields(
-            { name: `✅ Znaleziono ${finalPlayers.length} players with ZERO score`, value: `\`${finalPlayers.join(', ')}\``, inline: false }
+            { name: `✅ Found ${finalPlayers.length} players with ZERO score`, value: `\`${finalPlayers.join(', ')}\``, inline: false }
         )
         .setImage(imageUrl)
         .setTimestamp()
@@ -1577,7 +1577,7 @@ async function handleOcrDebugCommand(interaction, config) {
 async function handleDecodeCommand(interaction, sharedState) {
     const { config, survivorService } = sharedState;
 
-    // Sprawdź czy kanał jest zablokowany for komendy /decode
+    // Sprawdź czy kanał jest zablokowany for command /decode
     const currentChannelId = interaction.channelId;
     const parentChannelId = interaction.channel?.parent?.id;
 
@@ -1590,7 +1590,7 @@ async function handleDecodeCommand(interaction, sharedState) {
 
     if (!isAllowedChannel && !isAdmin) {
         await interaction.reply({
-            content: '❌ Command `/decode` jest dostępna tylko na wybranych kanałach.',
+            content: '❌ Command `/decode` is available only on selected channels.',
             flags: MessageFlags.Ephemeral
         });
         return;
@@ -1747,13 +1747,13 @@ async function handlePhase1Command(interaction, sharedState) {
         logger.info(`[PHASE1] ✅ Session created, waiting for images from ${interaction.user.tag}`);
 
     } catch (error) {
-        logger.error('[PHASE1] ❌ Błąd komendy /phase1:', error);
+        logger.error('[PHASE1] ❌ /phase1 command error:', error);
 
         // Unlock in case of error
         phaseService.clearActiveProcessing(interaction.guild.id);
 
         await interaction.editReply({
-            content: '❌ An error occurred podczas inicjalizacji komendy /phase1.'
+            content: '❌ An error occurred while initializing /phase1 command.'
         });
     }
 }
@@ -1778,7 +1778,7 @@ async function handleDecodeModalSubmit(interaction, sharedState) {
 
         if (!buildData.success) {
             await interaction.editReply({
-                content: `❌ **Failed to decode code**\n\n**Błąd:** ${buildData.error}\n**Code:** \`${code}\``,
+                content: `❌ **Failed to decode code**\n\n**Error:** ${buildData.error}\n**Code:** \`${code}\``,
                 flags: MessageFlags.Ephemeral
             });
             return;
@@ -1789,11 +1789,11 @@ async function handleDecodeModalSubmit(interaction, sharedState) {
         const embeds = await survivorService.createBuildEmbeds(buildData.data, userDisplayName, code, viewerDisplayName);
         const navigationButtons = survivorService.createNavigationButtons(0);
         const response = await interaction.editReply({
-            embeds: [embeds[0]], // Rozpocznij od pierwszej strony
+            embeds: [embeds[0]], // Start from first page
             components: navigationButtons
         });
 
-        // Przechowuj dane for paginacji
+        // Store data for pagination
         if (!sharedState.buildPagination) {
             sharedState.buildPagination = new Map();
         }
@@ -1824,10 +1824,10 @@ async function handleDecodeModalSubmit(interaction, sharedState) {
         logger.info(`✅ Successfully decoded Survivor.io build for ${interaction.user.tag}`);
 
     } catch (error) {
-        logger.error(`❌ Błąd dekodowania build Survivor.io: ${error.message}`);
+        logger.error(`❌ Survivor.io build decoding error: ${error.message}`);
 
         await interaction.editReply({
-            content: `❌ **An error occurred podczas dekodowania**\n\n**Błąd:** ${error.message}\n**Code:** \`${code}\``,
+            content: `❌ **An error occurred while decoding**\n\n**Error:** ${error.message}\n**Code:** \`${code}\``,
             flags: MessageFlags.Ephemeral
         });
     }
@@ -1972,9 +1972,9 @@ async function handlePhase1CompleteButton(interaction, sharedState) {
         }
 
     } catch (error) {
-        logger.error('[PHASE1] ❌ Błąd analizy wyników:', error);
+        logger.error('[PHASE1] ❌ Results analysis error:', error);
         await interaction.editReply({
-            content: '❌ An error occurred podczas analizy wyników.'
+            content: '❌ An error occurred while analyzing results.'
         });
     }
 }
@@ -2032,10 +2032,10 @@ async function handlePhase1ConflictResolveButton(interaction, sharedState) {
             components: [conflictEmbed.row]
         });
     } else {
-        logger.info(`[PHASE1] Wszystkie konflikty rozstrzygnięte!`);
+        logger.info(`[PHASE1] All conflicts resolved!`);
         // All conflicts resolved - show final summary
         await interaction.update({
-            content: '🔄 Przygotowuję podsumowanie...',
+            content: '🔄 Preparing summary...',
             embeds: [],
             components: []
         });
@@ -2074,7 +2074,7 @@ async function handlePhase1FinalConfirmButton(interaction, sharedState) {
         await phaseService.clearActiveProcessing(interaction.guild.id);
 
         await interaction.update({
-            content: '❌ Operation cancelled. Dane nie zostały zapisane.',
+            content: '❌ Operation cancelled. Dane nie have been saved.',
             embeds: [],
             components: []
         });
@@ -2106,39 +2106,39 @@ async function handlePhase1FinalConfirmButton(interaction, sharedState) {
 
         // Publiczny raport (wszystko widoczne for wszystkich)
         const publicEmbed = new EmbedBuilder()
-            .setTitle('✅ Phase 1 - Dane zapisane pomyślnie')
-            .setDescription(`Results for tygodnia **${weekInfo.weekNumber}/${weekInfo.year}** zostały zapisane.`)
+            .setTitle('✅ Phase 1 - Data Saved Successfully')
+            .setDescription(`Results for week **${weekInfo.weekNumber}/${weekInfo.year}** have been saved.`)
             .setColor('#00FF00')
             .addFields(
-                { name: '👥 Unikalnych players', value: stats.uniqueNicks.toString(), inline: true },
-                { name: '📈 Wynik > 0', value: `${stats.aboveZero} osób`, inline: true },
-                { name: '⭕ Wynik = 0', value: `${stats.zeroCount} osób`, inline: true },
-                { name: '🏆 Suma TOP30', value: `${stats.top30Sum.toLocaleString('pl-PL')} pkt`, inline: false },
-                { name: '🎯 Klan', value: clanName, inline: false }
+                { name: '👥 Unique players', value: stats.uniqueNicks.toString(), inline: true },
+                { name: '📈 Score > 0', value: `${stats.aboveZero} people`, inline: true },
+                { name: '⭕ Score = 0', value: `${stats.zeroCount} people`, inline: true },
+                { name: '🏆 Total TOP30', value: `${stats.top30Sum.toLocaleString('pl-PL')} pkt`, inline: false },
+                { name: '🎯 Clan', value: clanName, inline: false }
             )
             .setTimestamp()
             .setFooter({ text: `Zapisane przez ${interaction.user.tag}` });
 
-        // Dodaj listę players z zerem jeśli są
+        // Add players list z zerem jeśli są
         if (playersWithZero.length > 0) {
             const zeroList = playersWithZero.join(', ');
-            publicEmbed.addFields({ name: '📋 Gracze z wynikiem 0', value: zeroList, inline: false });
+            publicEmbed.addFields({ name: '📋 Playere z wynikiem 0', value: zeroList, inline: false });
         }
 
         await interaction.editReply({ embeds: [publicEmbed], components: [] });
 
         // Delete temp files after saving (will also unlock processing)
         await phaseService.cleanupSession(session.sessionId);
-        logger.info(`[PHASE1] ✅ Dane zapisane for tygodnia ${weekInfo.weekNumber}/${weekInfo.year}`);
+        logger.info(`[PHASE1] ✅ Data saved for tygodnia ${weekInfo.weekNumber}/${weekInfo.year}`);
 
     } catch (error) {
-        logger.error('[PHASE1] ❌ Błąd zapisu danych:', error);
+        logger.error('[PHASE1] ❌ Error zapisu danych:', error);
 
         // Odblokuj przetwarzanie w przypadku błędu
         phaseService.clearActiveProcessing(interaction.guild.id);
 
         await interaction.editReply({
-            content: '❌ An error occurred podczas zapisu danych do bazy.',
+            content: '❌ An error occurred while zapisu danych do bazy.',
             components: []
         });
     }
@@ -2149,7 +2149,7 @@ async function showPhase1FinalSummary(interaction, session, phaseService) {
     const stats = phaseService.calculateStatistics(finalResults);
     const weekInfo = phaseService.getCurrentWeekInfo();
 
-    // Przygotuj listę players z paskami postępu
+    // Prepare players list z paskami postępu
     const players = Array.from(finalResults.entries()).map(([nick, score]) => ({
         displayName: nick,
         score: score,
@@ -2170,7 +2170,7 @@ async function showPhase1FinalSummary(interaction, session, phaseService) {
 
     const summaryEmbed = phaseService.createFinalSummaryEmbed(stats, weekInfo, session.clan, 1);
 
-    // Dodaj listę players do description
+    // Add players list do description
     const clanName = phaseService.config.roleDisplayNames[session.clan] || session.clan;
     summaryEmbed.embed.setDescription(
         `**Clan:** ${clanName}\n**Week:** ${weekInfo.weekNumber}/${weekInfo.year}\n**TOP30:** ${stats.top30Sum.toLocaleString('pl-PL')} pkt\n\n${resultsText}\n\n✅ Analyzed all images and resolved conflicts.`
@@ -2297,23 +2297,23 @@ async function handlePhase2Command(interaction, sharedState) {
         session.publicInteraction = interaction;
         session.clan = userClan;
 
-        // Pokaż embed z prośbą o zdjęcia for rundy 1 (PUBLICZNY)
+        // Show embed with request for images for round 1 (PUBLIC)
         const awaitingEmbed = phaseService.createAwaitingImagesEmbed(2, 1);
         await interaction.editReply({
             embeds: [awaitingEmbed.embed],
             components: [awaitingEmbed.row]
         });
 
-        logger.info(`[PHASE2] ✅ Sesja utworzona, czekam na zdjęcia z rundy 1/3 od ${interaction.user.tag}`);
+        logger.info(`[PHASE2] ✅ Session created, waiting for images z rundy 1/3 od ${interaction.user.tag}`);
 
     } catch (error) {
-        logger.info(`[PHASE2] ❌ Błąd komendy /phase2:`, error);
+        logger.info(`[PHASE2] ❌ Error command /phase2:`, error);
 
         // Unlock in case of error
         phaseService.clearActiveProcessing(interaction.guild.id);
 
         await interaction.editReply({
-            content: '❌ An error occurred podczas uruchamiania komendy.'
+            content: '❌ An error occurred while starting command.'
         });
     }
 }
@@ -2379,7 +2379,7 @@ async function handlePhase2CompleteButton(interaction, sharedState) {
 
     if (!session || session.userId !== interaction.user.id) {
         await interaction.reply({
-            content: '❌ Sesja wygasła lub nie masz uprawnień.',
+            content: '❌ Session wygasła lub nie masz uprawnień.',
             flags: MessageFlags.Ephemeral
         });
         return;
@@ -2444,10 +2444,10 @@ async function handlePhase2CompleteButton(interaction, sharedState) {
             }
         }
 
-        // Wszystkie konflikty rozwiązane - pokaż podsumowanie rundy
-        logger.info(`[PHASE2] ✅ Wszystkie konflikty rozwiązane!`);
+        // All conflicts resolved - pokaż summary rundy
+        logger.info(`[PHASE2] ✅ All conflicts resolved!`);
 
-        // Pokaż podsumowanie rundy (działa for rund 1, 2 i 3)
+        // Pokaż summary rundy (działa for rund 1, 2 i 3)
         await showPhase2RoundSummary(interaction, session, phaseService);
         return;
     }
@@ -2472,13 +2472,13 @@ async function handlePhase2CompleteButton(interaction, sharedState) {
                 components: [conflictEmbed.row]
             });
         } else {
-            // Brak konfliktów - pokaż podsumowanie rundy
+            // Brak konfliktów - pokaż summary rundy
             await showPhase2RoundSummary(interaction, session, phaseService);
         }
     } catch (error) {
-        logger.error('[PHASE2] ❌ Błąd analizy:', error);
+        logger.error('[PHASE2] ❌ Error analizy:', error);
         await interaction.editReply({
-            content: '❌ An error occurred podczas analizy wyników.'
+            content: '❌ An error occurred while analizy wyników.'
         });
     }
 }
@@ -2490,7 +2490,7 @@ async function handlePhase2FinalConfirmButton(interaction, sharedState) {
 
     if (!session || session.userId !== interaction.user.id) {
         await interaction.reply({
-            content: '❌ Sesja wygasła lub nie masz uprawnień.',
+            content: '❌ Session wygasła lub nie masz uprawnień.',
             flags: MessageFlags.Ephemeral
         });
         return;
@@ -2505,7 +2505,7 @@ async function handlePhase2FinalConfirmButton(interaction, sharedState) {
         await phaseService.clearActiveProcessing(interaction.guild.id);
 
         await interaction.update({
-            content: '❌ Anulowano zapis danych.',
+            content: '❌ Cancelled zapis danych.',
             embeds: [],
             components: []
         });
@@ -2513,7 +2513,7 @@ async function handlePhase2FinalConfirmButton(interaction, sharedState) {
     }
 
     await interaction.update({
-        content: '💾 Zapisywanie wyników...',
+        content: '💾 Saving results...',
         embeds: [],
         components: []
     });
@@ -2590,37 +2590,37 @@ async function handlePhase2FinalConfirmButton(interaction, sharedState) {
         }
 
         const publicEmbed = new EmbedBuilder()
-            .setTitle('✅ Phase 2 - Dane zapisane pomyślnie')
-            .setDescription(`Results for tygodnia **${weekInfo.weekNumber}/${weekInfo.year}** zostały zapisane.`)
+            .setTitle('✅ Phase 2 - Data Saved Successfully')
+            .setDescription(`Results for week **${weekInfo.weekNumber}/${weekInfo.year}** have been saved.`)
             .setColor('#00FF00')
             .addFields(
-                { name: '⭕ Wynik = 0 (suma z 3 rund)', value: `${totalZeroCount} wystąpień`, inline: false },
-                { name: '🎯 Klan', value: clanName, inline: false }
+                { name: '⭕ Score = 0 (suma z 3 rund)', value: `${totalZeroCount} occurrences`, inline: false },
+                { name: '🎯 Clan', value: clanName, inline: false }
             )
             .setTimestamp()
             .setFooter({ text: `Zapisane przez ${interaction.user.tag}` });
 
         await interaction.editReply({ embeds: [publicEmbed], components: [] });
         await phaseService.cleanupSession(session.sessionId);
-        logger.info(`[PHASE2] ✅ Dane zapisane for tygodnia ${weekInfo.weekNumber}/${weekInfo.year}`);
+        logger.info(`[PHASE2] ✅ Data saved for tygodnia ${weekInfo.weekNumber}/${weekInfo.year}`);
 
     } catch (error) {
-        logger.error('[PHASE2] ❌ Błąd zapisu:', error);
+        logger.error('[PHASE2] ❌ Error zapisu:', error);
         phaseService.clearActiveProcessing(interaction.guild.id);
         await interaction.editReply({
-            content: '❌ An error occurred podczas zapisywania danych.'
+            content: '❌ An error occurred while zapisywania danych.'
         });
     }
 }
 
 async function showPhase2FinalSummary(interaction, session, phaseService) {
-    logger.info(`[PHASE2] 📋 Tworzenie finalnego podsumowania...`);
+    logger.info(`[PHASE2] 📋 Creating final summary...`);
 
     try {
-        logger.info(`[PHASE2] 🔢 Rozpoczynam sumowanie wyników...`);
+        logger.info(`[PHASE2] 🔢 Starting results summation...`);
         const summedResults = phaseService.sumPhase2Results(session);
 
-        logger.info(`[PHASE2] 📊 Obliczam statystyki...`);
+        logger.info(`[PHASE2] 📊 Calculating statistics...`);
         const stats = phaseService.calculateStatistics(summedResults);
 
         // Oblicz sumę zer z wszystkich 3 rund
@@ -2637,12 +2637,12 @@ async function showPhase2FinalSummary(interaction, session, phaseService) {
         logger.info(`[PHASE2] 📅 Pobieram informacje o tygodniu...`);
         const weekInfo = phaseService.getCurrentWeekInfo();
 
-        logger.info(`[PHASE2] 🎨 Tworzę embed podsumowania...`);
+        logger.info(`[PHASE2] 🎨 Creating summary embed...`);
         const summaryEmbed = phaseService.createFinalSummaryEmbed(stats, weekInfo, session.clan, 2);
 
         session.stage = 'final_confirmation';
 
-        logger.info(`[PHASE2] 📤 Wysyłam podsumowanie do użytkownika...`);
+        logger.info(`[PHASE2] 📤 Sending summary do użytkownika...`);
         logger.info(`[PHASE2] 🔍 Stan interakcji - deferred: ${interaction.deferred}, replied: ${interaction.replied}`);
 
         try {
@@ -2658,15 +2658,15 @@ async function showPhase2FinalSummary(interaction, session, phaseService) {
                     components: [summaryEmbed.row]
                 });
             }
-            logger.info(`[PHASE2] ✅ Podsumowanie wysłane pomyślnie`);
+            logger.info(`[PHASE2] ✅ Podsumowanie sent successfully`);
         } catch (replyError) {
-            logger.error(`[PHASE2] ❌ Błąd podczas wysyłania odpowiedzi:`, replyError);
+            logger.error(`[PHASE2] ❌ Error while wysyłania odpowiedzi:`, replyError);
             logger.error(`[PHASE2] ❌ Reply error message:`, replyError?.message);
             logger.error(`[PHASE2] ❌ Reply error code:`, replyError?.code);
             throw replyError;
         }
     } catch (error) {
-        logger.error(`[PHASE2] ❌ Błąd w showPhase2FinalSummary:`, error);
+        logger.error(`[PHASE2] ❌ Error w showPhase2FinalSummary:`, error);
         logger.error(`[PHASE2] ❌ Error stack:`, error.stack);
         throw error;
     }
@@ -2679,7 +2679,7 @@ async function handlePhase2RoundContinue(interaction, sharedState) {
 
     if (!session || session.userId !== interaction.user.id) {
         await interaction.reply({
-            content: '❌ Sesja wygasła lub nie masz uprawnień.',
+            content: '❌ Session wygasła lub nie masz uprawnień.',
             flags: MessageFlags.Ephemeral
         });
         return;
@@ -2690,7 +2690,7 @@ async function handlePhase2RoundContinue(interaction, sharedState) {
 
     // Sprawdź czy to była ostatnia runda
     if (session.currentRound < 3) {
-        // Zapisz wyniki bieżącej rundy i przejdź do następnej
+        // Save current round results and move to next
         phaseService.startNextRound(session);
         const awaitingEmbed = phaseService.createAwaitingImagesEmbed(2, session.currentRound);
         await interaction.update({
@@ -2698,21 +2698,21 @@ async function handlePhase2RoundContinue(interaction, sharedState) {
             embeds: [awaitingEmbed.embed],
             components: [awaitingEmbed.row]
         });
-        logger.info(`[PHASE2] 🔄 Przechodzę do rundy ${session.currentRound}/3`);
+        logger.info(`[PHASE2] 🔄 Moving to round ${session.currentRound}/3`);
     } else {
         // Zapisz wyniki ostatniej rundy przed pokazaniem podsumowania
-        logger.info(`[PHASE2] 💾 Zapisywanie wyników rundy 3 przed podsumowaniem...`);
+        logger.info(`[PHASE2] 💾 Saving results rundy 3 przed summarym...`);
         const lastRoundData = {
             round: session.currentRound,
             results: phaseService.getFinalResults(session)
         };
         logger.info(`[PHASE2] 📊 Results rundy 3: ${lastRoundData.results.size} players`);
         session.roundsData.push(lastRoundData);
-        logger.info(`[PHASE2] ✅ Zapisano wyniki rundy ${session.currentRound}/3. Łącznie ${session.roundsData.length} rund w roundsData`);
+        logger.info(`[PHASE2] ✅ Saved wyniki rundy ${session.currentRound}/3. Total ${session.roundsData.length} rund w roundsData`);
 
-        // Pokaż finalne podsumowanie
+        // Show final summary
         await interaction.update({
-            content: '✅ Wszystkie rundy zakończone! Przygotowuję finalne podsumowanie...',
+            content: '✅ All rounds completed! Preparing final summary...',
             embeds: [],
             components: []
         });
@@ -2720,20 +2720,20 @@ async function handlePhase2RoundContinue(interaction, sharedState) {
         try {
             await showPhase2FinalSummary(interaction, session, phaseService);
         } catch (error) {
-            logger.error(`[PHASE2] ❌ Błąd podczas wyświetlania podsumowania:`, error);
+            logger.error(`[PHASE2] ❌ Error while wyświetlania podsumowania:`, error);
             throw error;
         }
     }
 }
 
 async function showPhase2RoundSummary(interaction, session, phaseService) {
-    logger.info(`[PHASE2] 📋 Tworzenie podsumowania rundy ${session.currentRound}...`);
+    logger.info(`[PHASE2] 📋 Creating round summary ${session.currentRound}...`);
 
     // Oblicz statystyki for tej rundy
     const finalResults = phaseService.getFinalResults(session);
     const stats = phaseService.calculateStatistics(finalResults);
 
-    // Przygotuj listę players z paskami postępu
+    // Prepare players list z paskami postępu
     const players = Array.from(finalResults.entries()).map(([nick, score]) => ({
         displayName: nick,
         score: score,
@@ -2759,14 +2759,14 @@ async function showPhase2RoundSummary(interaction, session, phaseService) {
         .setTitle(`✅ Round ${session.currentRound}/3 - Podsumowanie`)
         .setDescription(`**Clan:** ${clanName}\n**Week:** ${weekInfo.weekNumber}/${weekInfo.year}\n**TOP30:** ${stats.top30Sum.toLocaleString('pl-PL')} pkt\n\n${resultsText}`)
         .setColor('#00FF00')
-        .setFooter({ text: `Łącznie players: ${sortedPlayers.length}` })
+        .setFooter({ text: `Total players: ${sortedPlayers.length}` })
         .setTimestamp();
 
     const row = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
                 .setCustomId('phase2_round_continue')
-                .setLabel(session.currentRound < 3 ? '✅ Przejdź do następnej rundy' : '✅ Pokaż finalne podsumowanie')
+                .setLabel(session.currentRound < 3 ? '✅ Continue to next round' : '✅ Show final summary')
                 .setStyle(ButtonStyle.Success)
         );
 
@@ -2797,15 +2797,15 @@ async function handleAddWeekSelect(interaction, sharedState) {
             new StringSelectMenuOptionBuilder()
                 .setLabel('Round 1')
                 .setValue('round1')
-                .setDescription('Dodaj do rundy 1'),
+                .setDescription('Add to round 1'),
             new StringSelectMenuOptionBuilder()
                 .setLabel('Round 2')
                 .setValue('round2')
-                .setDescription('Dodaj do rundy 2'),
+                .setDescription('Add to round 2'),
             new StringSelectMenuOptionBuilder()
                 .setLabel('Round 3')
                 .setValue('round3')
-                .setDescription('Dodaj do rundy 3')
+                .setDescription('Add to round 3')
         ];
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -2888,7 +2888,7 @@ async function showUserSelectMenu(interaction, sharedState, phase, clan, weekNum
             }
         }
     } catch (error) {
-        logger.error('[ADD] Błąd pobierania istniejących players:', error);
+        logger.error('[ADD] Error pobierania istniejących players:', error);
     }
 
     // Pobierz wszystkich członków serwera z odpowiednią rolą
@@ -2967,7 +2967,7 @@ async function handleAddUserSelect(interaction, sharedState) {
 
     const scoreInput = new TextInputBuilder()
         .setCustomId('score')
-        .setLabel('Wynik')
+        .setLabel('Score')
         .setStyle(TextInputStyle.Short)
         .setPlaceholder('Wpisz wynik (liczba)')
         .setRequired(true);
@@ -3032,7 +3032,7 @@ async function handleAddCommand(interaction, sharedState) {
         // Twórz select menu z tygodniami
         const weekOptions = weeksForClan.slice(0, 25).map(week => {
             return new StringSelectMenuOptionBuilder()
-                .setLabel(`Tydzień ${week.weekNumber}/${week.year}`)
+                .setLabel(`Week ${week.weekNumber}/${week.year}`)
                 .setValue(`${week.weekNumber}-${week.year}`)
                 .setDescription(`${week.clans.map(c => config.roleDisplayNames[c]).join(', ')}`);
         });
@@ -3059,9 +3059,9 @@ async function handleAddCommand(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[ADD] ❌ Błąd komendy /add:', error);
+        logger.error('[ADD] ❌ Error command /add:', error);
         await interaction.reply({
-            content: '❌ An error occurred podczas inicjalizacji komendy.',
+            content: '❌ An error occurred while initializing command.',
             flags: MessageFlags.Ephemeral
         });
     }
@@ -3077,7 +3077,7 @@ async function handleAddModalSubmit(interaction, sharedState) {
 
     if (isNaN(scoreNum)) {
         await interaction.reply({
-            content: '❌ Wynik musi być liczbą.',
+            content: '❌ Score musi być liczbą.',
             flags: MessageFlags.Ephemeral
         });
         return;
@@ -3134,11 +3134,11 @@ async function handleAddModalSubmit(interaction, sharedState) {
 
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
-                    .setTitle('✅ Gracz dodany - Phase 1')
+                    .setTitle('✅ Player dodany - Phase 1')
                     .setDescription(`Added gracza **${displayName}** z wynikiem **${scoreNum}**`)
                     .addFields(
-                        { name: 'Tydzień', value: `${week}/${year}`, inline: true },
-                        { name: 'Klan', value: config.roleDisplayNames[clan], inline: true },
+                        { name: 'Week', value: `${week}/${year}`, inline: true },
+                        { name: 'Clan', value: config.roleDisplayNames[clan], inline: true },
                         { name: 'TOP30 (suma)', value: top30Sum.toString(), inline: true }
                     )
                     .setColor('#00FF00')
@@ -3188,7 +3188,7 @@ async function handleAddModalSubmit(interaction, sharedState) {
                     }
                 }
 
-                // Zaktualizuj podsumowanie
+                // Update summary
                 const playerInSummary = weekData.summary.players.find(p => p.userId === userId);
                 if (playerInSummary) {
                     playerInSummary.score = totalScore;
@@ -3221,13 +3221,13 @@ async function handleAddModalSubmit(interaction, sharedState) {
 
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
-                    .setTitle('✅ Gracz dodany - Phase 2')
+                    .setTitle('✅ Player dodany - Phase 2')
                     .setDescription(`Added gracza **${displayName}** z wynikiem **${scoreNum}**`)
                     .addFields(
-                        { name: 'Tydzień', value: `${week}/${year}`, inline: true },
-                        { name: 'Klan', value: config.roleDisplayNames[clan], inline: true },
+                        { name: 'Week', value: `${week}/${year}`, inline: true },
+                        { name: 'Clan', value: config.roleDisplayNames[clan], inline: true },
                         { name: 'Round', value: roundName, inline: true },
-                        { name: 'Suma (podsumowanie)', value: summarySum.toString(), inline: false }
+                        { name: 'Total (summary)', value: summarySum.toString(), inline: false }
                     )
                     .setColor('#00FF00')
                     .setTimestamp()
@@ -3236,9 +3236,9 @@ async function handleAddModalSubmit(interaction, sharedState) {
         }
 
     } catch (error) {
-        logger.error('[ADD] ❌ Błąd dodawania gracza:', error);
+        logger.error('[ADD] ❌ Error adding player:', error);
         await interaction.editReply({
-            content: '❌ An error occurred podczas dodawania gracza.'
+            content: '❌ An error occurred while adding player.'
         });
     }
 }
@@ -3284,13 +3284,13 @@ async function handleModifyCommand(interaction, sharedState) {
     try {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-        // Pomiń wybór klanu i przejdź bezpośrednio do wyboru tygodnia
+        // Skip clan selection and go directly to selecting week
         await showModifyWeekSelection(interaction, databaseService, config, userClan, selectedPhase, null, 0);
 
     } catch (error) {
-        logger.error('[MODIFY] ❌ Błąd komendy /modify:', error);
+        logger.error('[MODIFY] ❌ Error command /modify:', error);
         await interaction.editReply({
-            content: '❌ An error occurred podczas uruchamiania komendy.',
+            content: '❌ An error occurred while starting command.',
             flags: MessageFlags.Ephemeral
         });
     }
@@ -3340,21 +3340,21 @@ async function showModifyWeekSelection(interaction, databaseService, config, use
                 });
 
                 return new StringSelectMenuOptionBuilder()
-                    .setLabel(`Tydzień ${week.weekNumber}/${week.year}`)
-                    .setDescription(`Zapisano: ${dateStr}`)
+                    .setLabel(`Week ${week.weekNumber}/${week.year}`)
+                    .setDescription(`Saved: ${dateStr}`)
                     .setValue(`${userClan}|${week.weekNumber}-${week.year}`);
             })
         );
 
     const components = [new ActionRowBuilder().addComponents(selectMenu)];
 
-    // Dodaj przyciski paginacji jeśli jest więcej niż 1 strona
+    // Dodaj przyciski paginacji if there are more than 1 page
     if (totalPages > 1) {
         const paginationRow = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`modify_week_prev|${customIdSuffix}|${userClan}|${currentPage}`)
-                    .setLabel('◀ Poprzednia')
+                    .setLabel('◀ Previous')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(currentPage === 0),
                 new ButtonBuilder()
@@ -3364,7 +3364,7 @@ async function showModifyWeekSelection(interaction, databaseService, config, use
                     .setDisabled(true),
                 new ButtonBuilder()
                     .setCustomId(`modify_week_next|${customIdSuffix}|${userClan}|${currentPage}`)
-                    .setLabel('Następna ▶')
+                    .setLabel('Next ▶')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(currentPage === totalPages - 1)
             );
@@ -3372,7 +3372,7 @@ async function showModifyWeekSelection(interaction, databaseService, config, use
     }
 
     const phaseTitle = selectedPhase === 'phase2' ? 'Phase 2' : 'Phase 1';
-    const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Suma'}` : '';
+    const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Total'}` : '';
     const stepNumber = selectedPhase === 'phase2' ? (selectedRound ? '3/3' : '1/3') : '1/2';
 
     const embed = new EmbedBuilder()
@@ -3402,9 +3402,9 @@ async function handleModifyClanSelect(interaction, sharedState) {
         await showModifyWeekSelection(interaction, databaseService, config, selectedClan, selectedPhase, null, 0);
 
     } catch (error) {
-        logger.error('[MODIFY] ❌ Błąd wyboru klanu:', error);
+        logger.error('[MODIFY] ❌ Error selecting clan:', error);
         await interaction.editReply({
-            content: '❌ An error occurred podczas wyboru klanu.',
+            content: '❌ An error occurred while selecting clan.',
             components: []
         });
     }
@@ -3487,13 +3487,13 @@ async function handleModifyRoundSelect(interaction, sharedState) {
 
         const components = [new ActionRowBuilder().addComponents(selectMenu)];
 
-        // Dodaj przyciski paginacji jeśli jest więcej niż 1 strona
+        // Dodaj przyciski paginacji if there are more than 1 page
         if (totalPages > 1) {
             const paginationRow = new ActionRowBuilder()
                 .addComponents(
                     new ButtonBuilder()
                         .setCustomId(`modify_page_prev|${clan}|${weekNumber}-${year}|${currentPage}|${customIdSuffix}`)
-                        .setLabel('◀ Poprzednia')
+                        .setLabel('◀ Previous')
                         .setStyle(ButtonStyle.Primary)
                         .setDisabled(true),
                     new ButtonBuilder()
@@ -3503,7 +3503,7 @@ async function handleModifyRoundSelect(interaction, sharedState) {
                         .setDisabled(true),
                     new ButtonBuilder()
                         .setCustomId(`modify_page_next|${clan}|${weekNumber}-${year}|${currentPage}|${customIdSuffix}`)
-                        .setLabel('Następna ▶')
+                        .setLabel('Next ▶')
                         .setStyle(ButtonStyle.Primary)
                         .setDisabled(totalPages === 1)
                 );
@@ -3523,9 +3523,9 @@ async function handleModifyRoundSelect(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[MODIFY] ❌ Błąd wyboru rundy:', error);
+        logger.error('[MODIFY] ❌ Error selecting round:', error);
         await interaction.editReply({
-            content: '❌ An error occurred podczas wyboru rundy.',
+            content: '❌ An error occurred while selecting round.',
             components: []
         });
     }
@@ -3627,13 +3627,13 @@ async function handleModifyWeekSelect(interaction, sharedState, page = 0) {
 
         const components = [new ActionRowBuilder().addComponents(selectMenu)];
 
-        // Dodaj przyciski paginacji jeśli jest więcej niż 1 strona
+        // Dodaj przyciski paginacji if there are more than 1 page
         if (totalPages > 1) {
             const paginationRow = new ActionRowBuilder()
                 .addComponents(
                     new ButtonBuilder()
                         .setCustomId(`modify_page_prev|${clan}|${weekNumber}-${year}|${currentPage}|${selectedPhase}`)
-                        .setLabel('◀ Poprzednia')
+                        .setLabel('◀ Previous')
                         .setStyle(ButtonStyle.Primary)
                         .setDisabled(currentPage === 0),
                     new ButtonBuilder()
@@ -3643,7 +3643,7 @@ async function handleModifyWeekSelect(interaction, sharedState, page = 0) {
                         .setDisabled(true),
                     new ButtonBuilder()
                         .setCustomId(`modify_page_next|${clan}|${weekNumber}-${year}|${currentPage}|${selectedPhase}`)
-                        .setLabel('Następna ▶')
+                        .setLabel('Next ▶')
                         .setStyle(ButtonStyle.Primary)
                         .setDisabled(currentPage === totalPages - 1)
                 );
@@ -3665,9 +3665,9 @@ async function handleModifyWeekSelect(interaction, sharedState, page = 0) {
         });
 
     } catch (error) {
-        logger.error('[MODIFY] ❌ Błąd wyboru tygodnia:', error);
+        logger.error('[MODIFY] ❌ Error selecting week:', error);
         await interaction.editReply({
-            content: '❌ An error occurred podczas wyboru tygodnia.',
+            content: '❌ An error occurred while selecting week.',
             components: []
         });
     }
@@ -3765,9 +3765,9 @@ async function handleModifyPlayerSelect(interaction, sharedState) {
         await interaction.showModal(modal);
 
     } catch (error) {
-        logger.error('[MODIFY] ❌ Błąd wyboru gracza:', error);
+        logger.error('[MODIFY] ❌ Error selecting player:', error);
         await interaction.reply({
-            content: '❌ An error occurred podczas wyboru gracza.',
+            content: '❌ An error occurred while selecting player.',
             flags: MessageFlags.Ephemeral
         });
     }
@@ -3885,7 +3885,7 @@ async function handleModifyPaginationButton(interaction, sharedState) {
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`modify_page_prev|${clan}|${weekNumber}-${year}|${validPage}${paginationCustomId}`)
-                    .setLabel('◀ Poprzednia')
+                    .setLabel('◀ Previous')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(validPage === 0),
                 new ButtonBuilder()
@@ -3895,14 +3895,14 @@ async function handleModifyPaginationButton(interaction, sharedState) {
                     .setDisabled(true),
                 new ButtonBuilder()
                     .setCustomId(`modify_page_next|${clan}|${weekNumber}-${year}|${validPage}${paginationCustomId}`)
-                    .setLabel('Następna ▶')
+                    .setLabel('Next ▶')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(validPage === totalPages - 1)
             );
         components.push(paginationRow);
 
         const phaseTitle = selectedPhase === 'phase2' ? 'Phase 2' : 'Phase 1';
-        const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Suma'}` : '';
+        const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Total'}` : '';
         const stepNumber = selectedPhase === 'phase2' ? (selectedRound ? '4/4' : '?/4') : '3/3';
 
         const embed = new EmbedBuilder()
@@ -3917,26 +3917,26 @@ async function handleModifyPaginationButton(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[MODIFY] ❌ Błąd paginacji:', error);
+        logger.error('[MODIFY] ❌ Error paginacji:', error);
         logger.error('[MODIFY] ❌ Error stack:', error.stack);
         logger.error('[MODIFY] ❌ customId:', interaction.customId);
 
         try {
             if (interaction.deferred || interaction.replied) {
                 await interaction.editReply({
-                    content: '❌ An error occurred podczas zmiany strony.',
+                    content: '❌ An error occurred while changing page.',
                     embeds: [],
                     components: []
                 });
             } else {
                 await interaction.update({
-                    content: '❌ An error occurred podczas zmiany strony.',
+                    content: '❌ An error occurred while changing page.',
                     embeds: [],
                     components: []
                 });
             }
         } catch (replyError) {
-            logger.error('[MODIFY] ❌ Błąd podczas odpowiedzi na błąd:', replyError);
+            logger.error('[MODIFY] ❌ Error while odpowiedzi na błąd:', replyError);
         }
     }
 }
@@ -3995,8 +3995,8 @@ async function handleModifyWeekPaginationButton(interaction, sharedState) {
                     });
 
                     return new StringSelectMenuOptionBuilder()
-                        .setLabel(`Tydzień ${week.weekNumber}/${week.year}`)
-                        .setDescription(`Zapisano: ${dateStr}`)
+                        .setLabel(`Week ${week.weekNumber}/${week.year}`)
+                        .setDescription(`Saved: ${dateStr}`)
                         .setValue(`${clan}|${week.weekNumber}-${week.year}`);
                 })
             );
@@ -4008,7 +4008,7 @@ async function handleModifyWeekPaginationButton(interaction, sharedState) {
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`modify_week_prev|${clan}|${validPage}`)
-                    .setLabel('◀ Poprzednia')
+                    .setLabel('◀ Previous')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(validPage === 0),
                 new ButtonBuilder()
@@ -4018,7 +4018,7 @@ async function handleModifyWeekPaginationButton(interaction, sharedState) {
                     .setDisabled(true),
                 new ButtonBuilder()
                     .setCustomId(`modify_week_next|${clan}|${validPage}`)
-                    .setLabel('Następna ▶')
+                    .setLabel('Next ▶')
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled(validPage === totalPages - 1)
             );
@@ -4036,9 +4036,9 @@ async function handleModifyWeekPaginationButton(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[MODIFY] ❌ Błąd paginacji tygodni:', error);
+        logger.error('[MODIFY] ❌ Error paginacji tygodni:', error);
         await interaction.update({
-            content: '❌ An error occurred podczas zmiany strony.',
+            content: '❌ An error occurred while changing page.',
             embeds: [],
             components: []
         });
@@ -4078,7 +4078,7 @@ async function handleModifyModalSubmit(interaction, sharedState) {
         // Walidacja nowego wyniku
         if (!/^\d+$/.test(newScore)) {
             await interaction.reply({
-                content: '❌ Wynik musi być liczbą całkowitą.',
+                content: '❌ Score musi być liczbą całkowitą.',
                 flags: MessageFlags.Ephemeral
             });
             return;
@@ -4116,16 +4116,16 @@ async function handleModifyModalSubmit(interaction, sharedState) {
 
         const clanName = config.roleDisplayNames[clan];
         const phaseTitle = selectedPhase === 'phase2' ? 'Phase 2' : 'Phase 1';
-        const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Suma'}` : '';
+        const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Total'}` : '';
 
         // Pokaż potwierdzenie
         const embed = new EmbedBuilder()
-            .setTitle(`⚠️ Potwierdzenie zmiany wyniku - ${phaseTitle}${roundText}`)
+            .setTitle(`⚠️ Confirmation zmiany wyniku - ${phaseTitle}${roundText}`)
             .setDescription(`Czy na pewno chcesz zmienić wynik for **${player.displayName}**?`)
             .setColor('#FF9900')
             .addFields(
-                { name: '🎯 Klan', value: clanName, inline: true },
-                { name: '📅 Tydzień', value: `${weekNumber}/${year}`, inline: true },
+                { name: '🎯 Clan', value: clanName, inline: true },
+                { name: '📅 Week', value: `${weekNumber}/${year}`, inline: true },
                 { name: '📊 Stary wynik', value: player.score.toString(), inline: true },
                 { name: '📈 Nowy wynik', value: newScoreNum.toString(), inline: true }
             )
@@ -4151,9 +4151,9 @@ async function handleModifyModalSubmit(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[MODIFY] ❌ Błąd modala:', error);
+        logger.error('[MODIFY] ❌ Error modala:', error);
         await interaction.reply({
-            content: '❌ An error occurred podczas przetwarzania formularza.',
+            content: '❌ An error occurred while przetwarzania formularza.',
             flags: MessageFlags.Ephemeral
         });
     }
@@ -4231,7 +4231,7 @@ async function handleModifyConfirmButton(interaction, sharedState) {
 
         const oldScore = player.score;
 
-        // Zaktualizuj wynik
+        // Update wynik
         if (selectedPhase === 'phase2') {
             // Aktualizuj wynik w odpowiedniej rundzie (tylko round1, round2, round3)
             if (selectedRound === 'round1') {
@@ -4257,7 +4257,7 @@ async function handleModifyConfirmButton(interaction, sharedState) {
                 }
             }
 
-            // Zaktualizuj summary.players z nowymi sumami
+            // Update summary.players z nowymi sumami
             weekData.summary.players = weekData.summary.players.map(p => ({
                 ...p,
                 score: summedScores.get(p.userId) || 0
@@ -4289,16 +4289,16 @@ async function handleModifyConfirmButton(interaction, sharedState) {
 
         const clanName = config.roleDisplayNames[clan];
         const phaseTitle = selectedPhase === 'phase2' ? 'Phase 2' : 'Phase 1';
-        const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Suma'}` : '';
+        const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Total'}` : '';
 
-        // Potwierdzenie
+        // Confirmation
         const embed = new EmbedBuilder()
-            .setTitle(`✅ Wynik został zmieniony - ${phaseTitle}${roundText}`)
+            .setTitle(`✅ Score został zmieniony - ${phaseTitle}${roundText}`)
             .setDescription(`Pomyślnie zmieniono wynik for **${player.displayName}**`)
             .setColor('#00FF00')
             .addFields(
-                { name: '🎯 Klan', value: clanName, inline: true },
-                { name: '📅 Tydzień', value: `${weekNumber}/${year}`, inline: true },
+                { name: '🎯 Clan', value: clanName, inline: true },
+                { name: '📅 Week', value: `${weekNumber}/${year}`, inline: true },
                 { name: '📊 Stary wynik', value: oldScore.toString(), inline: true },
                 { name: '📈 Nowy wynik', value: newScoreNum.toString(), inline: true }
             )
@@ -4313,9 +4313,9 @@ async function handleModifyConfirmButton(interaction, sharedState) {
         logger.info(`[MODIFY] ✅ Zmieniono wynik ${player.displayName}: ${oldScore} → ${newScoreNum} (Clan: ${clan}, Week: ${weekNumber}/${year})`);
 
     } catch (error) {
-        logger.error('[MODIFY] ❌ Błąd potwierdzenia:', error);
+        logger.error('[MODIFY] ❌ Error potwierdzenia:', error);
         await interaction.update({
-            content: '❌ An error occurred podczas zapisywania zmiany.',
+            content: '❌ An error occurred while zapisywania zmiany.',
             embeds: [],
             components: []
         });
@@ -4415,8 +4415,8 @@ async function handleResultsClanSelect(interaction, sharedState, page = 0) {
                     const phasesLabel = phases.join(', ');
 
                     return new StringSelectMenuOptionBuilder()
-                        .setLabel(`Tydzień ${week.weekNumber}/${week.year} (${phasesLabel})`)
-                        .setDescription(`Zapisano: ${dateStr}`)
+                        .setLabel(`Week ${week.weekNumber}/${week.year} (${phasesLabel})`)
+                        .setDescription(`Saved: ${dateStr}`)
                         .setValue(`${selectedClan}|${week.weekNumber}-${week.year}`);
                 })
             );
@@ -4429,13 +4429,13 @@ async function handleResultsClanSelect(interaction, sharedState, page = 0) {
 
             const prevButton = new ButtonBuilder()
                 .setCustomId(`results_weeks_prev|${selectedClan}|${page}`)
-                .setLabel('◀ Poprzednia')
+                .setLabel('◀ Previous')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(page === 0);
 
             const nextButton = new ButtonBuilder()
                 .setCustomId(`results_weeks_next|${selectedClan}|${page}`)
-                .setLabel('Następna ▶')
+                .setLabel('Next ▶')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(page >= totalPages - 1);
 
@@ -4444,10 +4444,10 @@ async function handleResultsClanSelect(interaction, sharedState, page = 0) {
         }
 
         const embed = new EmbedBuilder()
-            .setTitle('📊 Results - Wszystkie Fazy')
+            .setTitle('📊 Results - All Phases')
             .setDescription(`**Step 2/2:** Select week for clan **${clanName}**:`)
             .setColor('#0099FF')
-            .setFooter({ text: `Page ${page + 1}/${totalPages} | Łącznie tygodni: ${weeksForClan.length}` })
+            .setFooter({ text: `Page ${page + 1}/${totalPages} | Total tygodni: ${weeksForClan.length}` })
             .setTimestamp();
 
         await interaction.editReply({
@@ -4456,9 +4456,9 @@ async function handleResultsClanSelect(interaction, sharedState, page = 0) {
         });
 
     } catch (error) {
-        logger.error('[RESULTS] ❌ Błąd wyboru klanu:', error);
+        logger.error('[RESULTS] ❌ Error selecting clan:', error);
         await interaction.editReply({
-            content: '❌ An error occurred podczas wyboru klanu.',
+            content: '❌ An error occurred while selecting clan.',
             components: []
         });
     }
@@ -4493,9 +4493,9 @@ async function handleResultsWeekPaginationButton(interaction, sharedState) {
         await handleResultsClanSelect(mockInteraction, sharedState, newPage);
 
     } catch (error) {
-        logger.error('[RESULTS] ❌ Błąd paginacji tygodni:', error);
+        logger.error('[RESULTS] ❌ Error paginacji tygodni:', error);
         await interaction.update({
-            content: '❌ An error occurred podczas zmiany strony.',
+            content: '❌ An error occurred while changing page.',
             embeds: [],
             components: []
         });
@@ -4531,9 +4531,9 @@ async function handleResultsWeekSelect(interaction, sharedState, view = 'phase1'
         await showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, clan, weekNumber, year, view, config, false, true);
 
     } catch (error) {
-        logger.error('[RESULTS] ❌ Błąd wyświetlania wyników:', error);
+        logger.error('[RESULTS] ❌ Error wyświetlania wyników:', error);
         await interaction.editReply({
-            content: '❌ An error occurred podczas wyświetlania wyników.',
+            content: '❌ An error occurred while wyświetlania wyników.',
             components: []
         });
     }
@@ -4567,9 +4567,9 @@ async function handleResultsViewButton(interaction, sharedState) {
         await showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, clan, weekNumber, year, view, config, true);
 
     } catch (error) {
-        logger.error('[RESULTS] ❌ Błąd przełączania widoku:', error);
+        logger.error('[RESULTS] ❌ Error przełączania widoku:', error);
         await interaction.update({
-            content: '❌ An error occurred podczas przełączania widoku.',
+            content: '❌ An error occurred while przełączania widoku.',
             embeds: [],
             components: []
         });
@@ -4602,9 +4602,9 @@ async function handleResultsPhase2ViewButton(interaction, sharedState) {
         await showPhase2Results(interaction, weekData, clan, weekNumber, year, view, config, true);
 
     } catch (error) {
-        logger.error('[RESULTS] ❌ Błąd przełączania widoku Phase 2:', error);
+        logger.error('[RESULTS] ❌ Error przełączania widoku Phase 2:', error);
         await interaction.update({
-            content: '❌ An error occurred podczas przełączania widoku.',
+            content: '❌ An error occurred while przełączania widoku.',
             embeds: [],
             components: []
         });
@@ -4630,7 +4630,7 @@ async function showPhase2Results(interaction, weekData, clan, weekNumber, year, 
     } else {
         // Domyślnie pokaż sumę
         players = weekData.summary ? weekData.summary.players : weekData.players;
-        viewTitle = 'Suma';
+        viewTitle = 'Total';
     }
 
     if (!players || players.length === 0) {
@@ -4685,7 +4685,7 @@ async function showPhase2Results(interaction, weekData, clan, weekNumber, year, 
         .setTitle(`📊 Results - Phase 2 - ${viewTitle}`)
         .setDescription(`**Clan:** ${clanName}\n**Week:** ${weekNumber}/${year}\n${top30Text}\n${resultsText}`)
         .setColor('#0099FF')
-        .setFooter({ text: `Łącznie players: ${sortedPlayers.length} | Zapisano: ${new Date(weekData.createdAt).toLocaleDateString('pl-PL')}` })
+        .setFooter({ text: `Total players: ${sortedPlayers.length} | Saved: ${new Date(weekData.createdAt).toLocaleDateString('pl-PL')}` })
         .setTimestamp();
 
     // Przyciski nawigacji między rundami
@@ -4705,7 +4705,7 @@ async function showPhase2Results(interaction, weekData, clan, weekNumber, year, 
                 .setStyle(view === 'round3' ? ButtonStyle.Primary : ButtonStyle.Secondary),
             new ButtonBuilder()
                 .setCustomId(`results_phase2_view|${clan}|${weekNumber}-${year}|summary`)
-                .setLabel('Suma')
+                .setLabel('Total')
                 .setStyle(view === 'summary' ? ButtonStyle.Primary : ButtonStyle.Secondary)
         );
 
@@ -4742,7 +4742,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
         weekData = weekDataPhase2;
     } else if (view === 'summary' && weekDataPhase2) {
         players = weekDataPhase2.summary ? weekDataPhase2.summary.players : weekDataPhase2.players;
-        viewTitle = 'Suma';
+        viewTitle = 'Total';
         weekData = weekDataPhase2;
     } else {
         // Fallback - pokaż pierwszą dostępną fazę
@@ -4753,7 +4753,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
             view = 'phase1';
         } else if (weekDataPhase2) {
             players = weekDataPhase2.summary ? weekDataPhase2.summary.players : weekDataPhase2.players;
-            viewTitle = 'Suma';
+            viewTitle = 'Total';
             weekData = weekDataPhase2;
             view = 'summary';
         }
@@ -4779,7 +4779,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
     if (view === 'phase1' || view === 'round1' || view === 'round2' || view === 'round3' || view === 'summary') {
         let top30Sum = 0;
 
-        // Dla "Suma Phase 2" - oblicz sumę TOP30 z każdej rundy osobno
+        // Dla "Total Phase 2" - oblicz sumę TOP30 z każdej rundy osobno
         if (view === 'summary' && weekDataPhase2?.rounds) {
             for (let i = 0; i < 3; i++) {
                 if (weekDataPhase2.rounds[i] && weekDataPhase2.rounds[i].players) {
@@ -4839,11 +4839,11 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
                     }
                 }
             } catch (error) {
-                logger.error('[RESULTS] Błąd pobierania TOP30 z poprzedniego tygodnia:', error);
+                logger.error('[RESULTS] Error pobierania TOP30 z poprzedniego tygodnia:', error);
             }
         }
 
-        // Dodaj informację o sposobie liczenia for widoku "Suma"
+        // Dodaj informację o sposobie liczenia for widoku "Total"
         const summaryNote = view === 'summary' ? ' (suma TOP30 z 3 rund)' : '';
         descriptionExtra = `**TOP30:** ${top30Sum.toLocaleString('pl-PL')} pkt${summaryNote}${top30ProgressText}\n`;
 
@@ -4949,7 +4949,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
                 });
 
                 if (totalProgressSum > 0) {
-                    top3Section += `**Suma progresu:** +${totalProgressSum.toLocaleString('pl-PL')} pkt\n`;
+                    top3Section += `**Total progresu:** +${totalProgressSum.toLocaleString('pl-PL')} pkt\n`;
                 }
             }
 
@@ -4964,7 +4964,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
                 });
 
                 if (totalRegressSum > 0) {
-                    top3Section += `**Suma regresu:** -${totalRegressSum.toLocaleString('pl-PL')} pkt\n`;
+                    top3Section += `**Total regresu:** -${totalRegressSum.toLocaleString('pl-PL')} pkt\n`;
                 }
             }
         }
@@ -5003,7 +5003,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
         .setTitle(`📊 Results - ${viewTitle}`)
         .setDescription(`**Clan:** ${clanName}\n**Week:** ${weekNumber}/${year}\n${descriptionExtra}\n${resultsText}${top3Section}${expiryInfo}`)
         .setColor('#0099FF')
-        .setFooter({ text: `Łącznie players: ${sortedPlayers.length} | Zapisano: ${new Date(weekData.createdAt).toLocaleDateString('pl-PL')}` })
+        .setFooter({ text: `Total players: ${sortedPlayers.length} | Saved: ${new Date(weekData.createdAt).toLocaleDateString('pl-PL')}` })
         .setTimestamp();
 
     // Przyciski nawigacji między fazami
@@ -5031,7 +5031,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
                 .setDisabled(!weekDataPhase2?.rounds?.[2]),
             new ButtonBuilder()
                 .setCustomId(`results_view|${clan}|${weekNumber}-${year}|summary`)
-                .setLabel('Suma Phase 2')
+                .setLabel('Total Phase 2')
                 .setStyle(view === 'summary' ? ButtonStyle.Primary : ButtonStyle.Secondary)
                 .setDisabled(!weekDataPhase2)
         );
@@ -5045,7 +5045,7 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
     if (useFollowUp) {
         // Dla /results - wyślij publiczną wiadomość
         await interaction.editReply({
-            content: '✅ Results zostały wysłane publicznie poniżej.',
+            content: '✅ Results have been sent publicly below.',
             embeds: [],
             components: []
         });
@@ -5122,8 +5122,8 @@ async function handleResultsCommand(interaction, sharedState) {
         const row = new ActionRowBuilder().addComponents(selectMenu);
 
         const embed = new EmbedBuilder()
-            .setTitle('📊 Results - Wszystkie Fazy')
-            .setDescription('**Step 1/2:** Select clan, for którego you want to see results:')
+            .setTitle('📊 Results - All Phases')
+            .setDescription('**Step 1/2:** Select clan for which you want to see results:')
             .setColor('#0099FF')
             .setTimestamp();
 
@@ -5134,9 +5134,9 @@ async function handleResultsCommand(interaction, sharedState) {
         });
 
     } catch (error) {
-        logger.error('[RESULTS] ❌ Błąd pobierania wyników:', error);
+        logger.error('[RESULTS] ❌ Error pobierania wyników:', error);
         await interaction.editReply({
-            content: '❌ An error occurred podczas pobierania wyników.'
+            content: '❌ An error occurred while pobierania wyników.'
         });
     }
 }

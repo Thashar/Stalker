@@ -13,26 +13,26 @@ class VacationService {
         try {
             const vacationChannel = await guild.channels.fetch(this.config.vacations.vacationChannelId);
             if (!vacationChannel) {
-                this.logger.error('❌ Nie znaleziono kanału urlopów');
+                this.logger.error('❌ Vacation channel not found');
                 return;
             }
 
-            // Usuń wszystkie poprzednie wiadomości bota z kanału
+            // Delete all previous bot messages from channel
             const messages = await vacationChannel.messages.fetch({ limit: 50 });
             const botMessages = messages.filter(msg => msg.author.bot);
-            
+
             for (const message of botMessages.values()) {
                 try {
                     await message.delete();
                 } catch (error) {
-                    this.logger.warn(`⚠️ Nie można usunąć wiadomości: ${error.message}`);
+                    this.logger.warn(`⚠️ Cannot delete message: ${error.message}`);
                 }
             }
 
-            // Utwórz przycisk do zgłaszania urlopu
+            // Create button for submitting vacation
             const vacationButton = new ButtonBuilder()
                 .setCustomId('vacation_request')
-                .setLabel('Zgłoś urlop')
+                .setLabel('Submit vacation')
                 .setEmoji('<:PepePaluszki:1341086255433121914>')
                 .setStyle(ButtonStyle.Success);
 
@@ -43,45 +43,45 @@ class VacationService {
                 components: [row]
             });
 
-            this.logger.info('✅ Wysłano stałą wiadomość o urlopach');
+            this.logger.info('✅ Sent permanent vacation message');
         } catch (error) {
-            this.logger.error(`❌ Błąd wysyłania stałej wiadomości: ${error.message}`);
+            this.logger.error(`❌ Error sending permanent message: ${error.message}`);
         }
     }
 
     async handleVacationRequest(interaction) {
         try {
             const userId = interaction.user.id;
-            
-            // Sprawdź cooldown
+
+            // Check cooldown
             if (this.isOnCooldown(userId)) {
                 const remainingTime = this.getRemainingCooldown(userId);
                 await interaction.reply({
-                    content: `⏰ Możesz złożyć kolejny wniosek o urlop za ${remainingTime}.`,
+                    content: `⏰ You can submit another vacation request in ${remainingTime}.`,
                     ephemeral: true
                 });
                 return;
             }
 
-            // Wyślij pierwszą wiadomość z zasadami
-            const rulesMessage = `Kilka ważnych zasad odnośnie składania urlopów:
-- Urlopy zgłaszamy maksymalnie na 2 tygodnie przed rozpoczęciem urlopu,
-- Każdy urlop może trwać maksymalnie 2 tygodnie,
-- Jeżeli musisz przedłużyć urlop, zrób to dopiero w czasie jego trwania.
-- Podczas urlopu można odpuścić punkty daily, eventy, oraz w niektórych przypadkach 3 fazę LME
-- **Pamiętaj, że urlop nie obowiązuje podczas 1 fazy LME, chyba, że uczestnictwo jest niemożliwe (zepsuty telefon, brak internetu w innym kraju).**
-- Urlop chroni przed nałożeniem punktów kary za brak uczestnictwa w 3 fazie LME.
+            // Send first message with rules
+            const rulesMessage = `Important rules regarding vacation submissions:
+- Vacations must be submitted up to 2 weeks before the vacation starts,
+- Each vacation can last a maximum of 2 weeks,
+- If you need to extend your vacation, do so only during its duration.
+- During vacation you can skip daily points, events, and in some cases LME phase 3
+- **Remember that vacation does not apply during LME phase 1, unless participation is impossible (broken phone, no internet in another country).**
+- Vacation protects against punishment points for lack of participation in LME phase 3.
 
-Jeżeli zapoznałeś się z powyższymi zasadami i zgadzasz się z nimi naciśnij przycisk poniżej w celu złożenia wniosku.`;
+If you have read and agree to the above rules, press the button below to submit your request.`;
 
             const submitButton = new ButtonBuilder()
                 .setCustomId(`vacation_submit_${userId}`)
-                .setLabel('Złóż wniosek o urlop')
+                .setLabel('Submit vacation request')
                 .setStyle(ButtonStyle.Success);
 
             const cancelButton = new ButtonBuilder()
                 .setCustomId(`vacation_cancel_${userId}`)
-                .setLabel('Nie otwieraj wniosku')
+                .setLabel("Don't open request")
                 .setStyle(ButtonStyle.Danger);
 
             const row = new ActionRowBuilder()
@@ -94,9 +94,9 @@ Jeżeli zapoznałeś się z powyższymi zasadami i zgadzasz się z nimi naciśni
             });
 
         } catch (error) {
-            this.logger.error(`❌ Błąd obsługi wniosku o urlop: ${error.message}`);
+            this.logger.error(`❌ Error handling vacation request: ${error.message}`);
             await interaction.reply({
-                content: '❌ Wystąpił błąd podczas obsługi wniosku.',
+                content: '❌ An error occurred while handling the request.',
                 ephemeral: true
             });
         }
@@ -107,39 +107,39 @@ Jeżeli zapoznałeś się z powyższymi zasadami i zgadzasz się z nimi naciśni
             const userId = interaction.user.id;
             const member = interaction.member;
 
-            // Nadaj rolę do składania wniosku
+            // Assign vacation request role
             const vacationRole = interaction.guild.roles.cache.get(this.config.vacations.vacationRequestRoleId);
             if (vacationRole) {
                 await member.roles.add(vacationRole);
-                this.logger.info(`✅ Nadano rolę urlopową użytkownikowi ${member.user.tag}`);
-                
-                // Ustaw automatyczne usunięcie roli po 15 minutach
+                this.logger.info(`✅ Assigned vacation role to user ${member.user.tag}`);
+
+                // Set automatic role removal after 15 minutes
                 this.setRoleTimeout(userId, interaction.guild);
             }
 
-            // Ustaw cooldown
+            // Set cooldown
             this.setCooldown(userId);
 
-            const successMessage = `Możesz teraz napisać wniosek na czacie.
-Pamiętaj, żeby podać dokładny termin kiedy będziesz niedostępny.
+            const successMessage = `You can now write your request in the chat.
+Remember to provide the exact dates when you will be unavailable.
 
-**Po wysłaniu wiadomości nowy wniosek będziesz mógł złożyć dopiero za 6h!**`;
+**After sending the message you can submit a new request only after 6h!**`;
 
             await interaction.update({
                 content: successMessage,
                 components: []
             });
 
-            // Zapisz referencję do interakcji dla późniejszej aktualizacji
+            // Save interaction reference for later update
             this.userInteractions.set(userId, interaction);
 
-            // Sprawdź czy wiadomość o urlopach jest ostatnia
+            // Check if vacation message is last
             await this.ensureVacationMessageIsLast(interaction.guild);
 
         } catch (error) {
-            this.logger.error(`❌ Błąd składania wniosku: ${error.message}`);
+            this.logger.error(`❌ Error submitting request: ${error.message}`);
             await interaction.update({
-                content: '❌ Wystąpił błąd podczas składania wniosku.',
+                content: '❌ An error occurred while submitting the request.',
                 components: []
             });
         }
@@ -148,54 +148,54 @@ Pamiętaj, żeby podać dokładny termin kiedy będziesz niedostępny.
     async handleVacationCancel(interaction) {
         try {
             await interaction.update({
-                content: 'Wniosek został zamknięty.',
+                content: 'Request has been closed.',
                 components: []
             });
 
         } catch (error) {
-            this.logger.error(`❌ Błąd anulowania wniosku: ${error.message}`);
+            this.logger.error(`❌ Error canceling request: ${error.message}`);
         }
     }
 
     async handleVacationMessage(message) {
         try {
-            // Sprawdź czy wiadomość jest na kanale urlopów
+            // Check if message is in vacation channel
             if (message.channel.id !== this.config.vacations.vacationChannelId) {
                 return;
             }
 
-            // Sprawdź czy użytkownik ma rolę do składania wniosku i usuń ją
+            // Check if user has vacation request role and remove it
             const vacationRole = message.guild.roles.cache.get(this.config.vacations.vacationRequestRoleId);
             if (vacationRole && message.member.roles.cache.has(vacationRole.id)) {
                 await message.member.roles.remove(vacationRole);
-                this.logger.info(`✅ Usunięto rolę urlopową użytkownikowi ${message.author.tag} po napisaniu wniosku`);
-                
-                // Anuluj automatyczne usunięcie roli (użytkownik napisał wniosek)
+                this.logger.info(`✅ Removed vacation role from user ${message.author.tag} after writing request`);
+
+                // Cancel automatic role removal (user wrote request)
                 this.clearRoleTimeout(message.author.id);
 
-                // Zaktualizuj ephemeral message użytkownika
+                // Update user's ephemeral message
                 const userInteraction = this.userInteractions.get(message.author.id);
                 if (userInteraction) {
                     try {
                         await userInteraction.editReply({
-                            content: 'Wniosek został złożony.',
+                            content: 'Request has been submitted.',
                             components: []
                         });
-                        this.logger.info(`✅ Zaktualizowano ephemeral message dla ${message.author.tag}`);
+                        this.logger.info(`✅ Updated ephemeral message for ${message.author.tag}`);
                     } catch (error) {
-                        this.logger.warn(`⚠️ Nie można zaktualizować ephemeral message dla ${message.author.tag}: ${error.message}`);
+                        this.logger.warn(`⚠️ Cannot update ephemeral message for ${message.author.tag}: ${error.message}`);
                     }
-                    
-                    // Usuń referencję do interakcji
+
+                    // Delete interaction reference
                     this.userInteractions.delete(message.author.id);
                 }
             }
 
-            // Sprawdź czy wiadomość bota z przyciskiem urlopowym jest ostatnia
+            // Check if bot message with vacation button is last
             await this.ensureVacationMessageIsLast(message.guild);
 
         } catch (error) {
-            this.logger.error(`❌ Błąd obsługi wiadomości urlopowej: ${error.message}`);
+            this.logger.error(`❌ Error handling vacation message: ${error.message}`);
         }
     }
 
@@ -206,32 +206,32 @@ Pamiętaj, żeby podać dokładny termin kiedy będziesz niedostępny.
                 return;
             }
 
-            // Pobierz najnowsze wiadomości z kanału
+            // Fetch latest messages from channel
             const messages = await vacationChannel.messages.fetch({ limit: 10 });
             const messageList = Array.from(messages.values()).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-            
+
             if (messageList.length === 0) {
-                // Jeśli kanał jest pusty, wyślij wiadomość
+                // If channel is empty, send message
                 await this.sendPermanentVacationMessage(guild);
                 return;
             }
 
             const lastMessage = messageList[messageList.length - 1];
-            
-            // Sprawdź czy ostatnia wiadomość to wiadomość bota z przyciskiem urlopowym
-            const isVacationMessage = lastMessage.author.bot && 
+
+            // Check if last message is bot message with vacation button
+            const isVacationMessage = lastMessage.author.bot &&
                 (!lastMessage.content || lastMessage.content === '') &&
                 lastMessage.components.length > 0 &&
                 lastMessage.components[0].components.some(comp => comp.customId === 'vacation_request');
 
             if (!isVacationMessage) {
-                // Wiadomość bota nie jest ostatnia lub nie istnieje - odśwież
-                this.logger.info('🔄 Wiadomość o urlopach nie jest ostatnia - odświeżam');
+                // Bot message is not last or doesn't exist - refresh
+                this.logger.info('🔄 Vacation message is not last - refreshing');
                 await this.sendPermanentVacationMessage(guild);
             }
 
         } catch (error) {
-            this.logger.error(`❌ Błąd sprawdzania pozycji wiadomości urlopowej: ${error.message}`);
+            this.logger.error(`❌ Error checking vacation message position: ${error.message}`);
         }
     }
 
@@ -246,13 +246,13 @@ Pamiętaj, żeby podać dokładny termin kiedy będziesz niedostępny.
 
     getRemainingCooldown(userId) {
         const lastRequest = this.cooldowns.get(userId);
-        if (!lastRequest) return '0 minut';
+        if (!lastRequest) return '0 minutes';
 
         const now = Date.now();
         const cooldownTime = this.config.vacations.cooldownHours * 60 * 60 * 1000;
         const remaining = cooldownTime - (now - lastRequest);
 
-        if (remaining <= 0) return '0 minut';
+        if (remaining <= 0) return '0 minutes';
 
         const hours = Math.floor(remaining / (1000 * 60 * 60));
         const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
@@ -269,35 +269,35 @@ Pamiętaj, żeby podać dokładny termin kiedy będziesz niedostępny.
     }
 
     setRoleTimeout(userId, guild) {
-        // Wyczyść istniejący timeout jeśli istnieje
+        // Clear existing timeout if exists
         this.clearRoleTimeout(userId);
 
-        // Ustaw nowy timeout na 15 minut (900000 ms)
+        // Set new timeout for 15 minutes (900000 ms)
         const timeoutId = setTimeout(async () => {
             try {
                 const member = await guild.members.fetch(userId);
                 const vacationRole = guild.roles.cache.get(this.config.vacations.vacationRequestRoleId);
-                
+
                 if (member && vacationRole && member.roles.cache.has(vacationRole.id)) {
                     await member.roles.remove(vacationRole);
-                    this.logger.info(`⏰ Automatycznie usunięto rolę urlopową użytkownikowi ${member.user.tag} po 15 minutach`);
-                    
-                    // Sprawdź czy wiadomość o urlopach jest ostatnia
+                    this.logger.info(`⏰ Automatically removed vacation role from user ${member.user.tag} after 15 minutes`);
+
+                    // Check if vacation message is last
                     await this.ensureVacationMessageIsLast(guild);
                 }
-                
-                // Usuń timeout z mapy
+
+                // Remove timeout from map
                 this.roleTimeouts.delete(userId);
-                
+
             } catch (error) {
-                this.logger.error(`❌ Błąd automatycznego usuwania roli urlopowej: ${error.message}`);
+                this.logger.error(`❌ Error automatically removing vacation role: ${error.message}`);
                 this.roleTimeouts.delete(userId);
             }
-        }, 15 * 60 * 1000); // 15 minut
+        }, 15 * 60 * 1000); // 15 minutes
 
-        // Zapisz timeout ID
+        // Save timeout ID
         this.roleTimeouts.set(userId, timeoutId);
-        this.logger.info(`⏱️ Ustawiono automatyczne usunięcie roli urlopowej za 15 minut dla użytkownika ${userId}`);
+        this.logger.info(`⏱️ Set automatic vacation role removal in 15 minutes for user ${userId}`);
     }
 
     clearRoleTimeout(userId) {
@@ -305,7 +305,7 @@ Pamiętaj, żeby podać dokładny termin kiedy będziesz niedostępny.
         if (timeoutId) {
             clearTimeout(timeoutId);
             this.roleTimeouts.delete(userId);
-            this.logger.info(`🚫 Anulowano automatyczne usunięcie roli urlopowej dla użytkownika ${userId}`);
+            this.logger.info(`🚫 Canceled automatic vacation role removal for user ${userId}`);
         }
     }
 }

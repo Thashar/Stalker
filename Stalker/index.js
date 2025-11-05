@@ -105,68 +105,68 @@ client.once(Events.ClientReady, async () => {
         timezone: config.timezone
     });
     
-    // Uruchomienie zadania cron dla czyszczenia plików tymczasowych (codziennie o 02:00)
+    // Run cron job for temp file cleanup (daily at 02:00)
     cron.schedule('0 2 * * *', async () => {
         logger.info('Starting temporary file cleanup...');
         await ocrService.cleanupTempFiles();
     }, {
         timezone: config.timezone
     });
-    
-    // Removed automatic refresh cache'u członków - teraz odbywa się przed użyciem komend
+
+    // Removed automatic member cache refresh - now happens before command use
     
 });
 
-// Obsługa interakcji
+// Handle interactions
 client.on(Events.InteractionCreate, async (interaction) => {
     try {
         await handleInteraction(interaction, sharedState, config);
     } catch (error) {
-        logger.error(`❌ Błąd podczas obsługi interakcji: ${error.message}`);
-        
+        logger.error(`❌ Error handling interaction: ${error.message}`);
+
         try {
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ 
-                    content: '❌ Wystąpił błąd podczas przetwarzania komendy.', 
-                    ephemeral: true 
+                await interaction.reply({
+                    content: '❌ An error occurred while processing the command.',
+                    ephemeral: true
                 });
             } else if (interaction.deferred) {
-                await interaction.editReply({ 
-                    content: '❌ Wystąpił błąd podczas przetwarzania komendy.' 
+                await interaction.editReply({
+                    content: '❌ An error occurred while processing the command.'
                 });
             }
         } catch (replyError) {
-            logger.error(`❌ Nie można odpowiedzieć na interakcję (prawdopodobnie timeout): ${replyError.message}`);
+            logger.error(`❌ Cannot reply to interaction (probably timeout): ${replyError.message}`);
         }
     }
 });
 
-// Obsługa wiadomości (dla usuwania roli urlopowej po napisaniu wniosku + Phase 1 images)
+// Handle messages (for removing vacation role after submitting request + Phase 1 images)
 client.on(Events.MessageCreate, async (message) => {
-    // Ignoruj wiadomości od botów
+    // Ignore messages from bots
     if (message.author.bot) return;
 
     try {
         await vacationService.handleVacationMessage(message);
     } catch (error) {
-        logger.error(`❌ Błąd podczas obsługi wiadomości urlopowej: ${error.message}`);
+        logger.error(`❌ Error handling vacation message: ${error.message}`);
     }
 
-    // Obsługa wiadomości z zdjęciami dla Phase 1
+    // Handle messages with images for Phase 1
     try {
         const session = phaseService.getSessionByUserId(message.author.id);
 
         if (session && session.stage === 'awaiting_images' && session.channelId === message.channelId) {
-            // Sprawdź czy wiadomość ma załączniki (zdjęcia)
+            // Check if message has attachments (images)
             const imageAttachments = message.attachments.filter(att => att.contentType?.startsWith('image/'));
 
             if (imageAttachments.size > 0) {
-                logger.info(`[PHASE1] 📸 Otrzymano ${imageAttachments.size} zdjęć od ${message.author.tag}`);
+                logger.info(`[PHASE1] 📸 Received ${imageAttachments.size} images from ${message.author.tag}`);
 
                 const attachmentsArray = Array.from(imageAttachments.values());
 
-                // KROK 1: Zapisz wszystkie zdjęcia na dysk
-                logger.info('[PHASE1] 💾 Zapisywanie zdjęć na dysk...');
+                // STEP 1: Save all images to disk
+                logger.info('[PHASE1] 💾 Saving images to disk...');
                 const downloadedFiles = [];
 
                 for (let i = 0; i < attachmentsArray.length; i++) {
@@ -181,22 +181,22 @@ client.on(Events.MessageCreate, async (message) => {
                             originalAttachment: attachmentsArray[i]
                         });
                     } catch (error) {
-                        logger.error(`[PHASE1] ❌ Błąd pobierania zdjęcia ${i + 1}:`, error);
+                        logger.error(`[PHASE1] ❌ Error downloading image ${i + 1}:`, error);
                     }
                 }
 
                 session.downloadedFiles.push(...downloadedFiles.map(f => f.filepath));
-                logger.info(`[PHASE1] ✅ Zapisano ${downloadedFiles.length} zdjęć na dysk`);
+                logger.info(`[PHASE1] ✅ Saved ${downloadedFiles.length} images to disk`);
 
-                // KROK 2: Usuń wiadomość ze zdjęciami z kanału
+                // STEP 2: Delete message with images from channel
                 try {
                     await message.delete();
-                    logger.info('[PHASE1] 🗑️ Usunięto wiadomość ze zdjęciami z kanału');
+                    logger.info('[PHASE1] 🗑️ Deleted message with images from channel');
                 } catch (deleteError) {
-                    logger.error('[PHASE1] ❌ Błąd usuwania wiadomości:', deleteError);
+                    logger.error('[PHASE1] ❌ Error deleting message:', deleteError);
                 }
 
-                // KROK 3: Przetwarzaj zdjęcia z dysku
+                // STEP 3: Process images from disk
                 const results = await phaseService.processImagesFromDisk(
                     session.sessionId,
                     downloadedFiles,
@@ -205,7 +205,7 @@ client.on(Events.MessageCreate, async (message) => {
                     session.publicInteraction
                 );
 
-                // Pokaż potwierdzenie przetworzenia w publicznej wiadomości
+                // Show processing confirmation in public message
                 const processedCount = results.length;
                 const totalImages = session.processedImages.length;
 
@@ -220,166 +220,166 @@ client.on(Events.MessageCreate, async (message) => {
                         components: [confirmation.row]
                     });
 
-                    // Wyślij ghost ping zamiast zwykłego pingu w edytowanej wiadomości
+                    // Send ghost ping instead of regular ping in edited message
                     const channel = await client.channels.fetch(session.channelId);
                     await sendGhostPing(channel, message.author.id, session);
                 }
             }
         }
     } catch (error) {
-        logger.error(`[PHASE1] ❌ Błąd podczas obsługi wiadomości Phase 1: ${error.message}`);
+        logger.error(`[PHASE1] ❌ Error handling Phase 1 message: ${error.message}`);
     }
 
-    // Obsługa MessageCreate dla /wyniki została przeniesiona do message collector w interactionHandlers.js
-    // Ten blok kodu nie jest już używany, ale zostawiam dla referencji w przypadku problemów
+    // MessageCreate handling for /results moved to message collector in interactionHandlers.js
+    // This code block is no longer used, but kept for reference in case of issues
 });
 
-// Obsługa błędów
+// Error handling
 client.on('error', error => {
-    // Ignoruj błędy WebSocket 520 - są tymczasowe
+    // Ignore WebSocket 520 errors - they are temporary
     if (error.message && error.message.includes('520')) {
-        logger.warn('Tymczasowy błąd WebSocket 520 - automatyczne ponowne połączenie');
+        logger.warn('Temporary WebSocket 520 error - automatic reconnection');
         return;
     }
-    
-    logger.error(`Błąd klienta Discord: ${error.message}`);
+
+    logger.error(`Discord client error: ${error.message}`);
 });
 
 client.on('warn', warning => {
-    logger.warn(`Ostrzeżenie Discord: ${warning}`);
+    logger.warn(`Discord warning: ${warning}`);
 });
 
-// Obsługa błędów procesów
+// Process error handling
 process.on('unhandledRejection', error => {
-    // Ignoruj błędy WebSocket 520 - są tymczasowe
+    // Ignore WebSocket 520 errors - they are temporary
     if (error.message && error.message.includes('520')) {
-        logger.warn('Tymczasowy błąd WebSocket 520 - ignoruję');
+        logger.warn('Temporary WebSocket 520 error - ignoring');
         return;
     }
-    
-    logger.error(`Nieobsłużone odrzucenie Promise: ${error.message}`);
+
+    logger.error(`Unhandled Promise rejection: ${error.message}`);
     logger.error(error);
 });
 
 process.on('uncaughtException', error => {
-    logger.error(`Nieobsłużony wyjątek: ${error.message}`);
+    logger.error(`Uncaught exception: ${error.message}`);
     logger.error(error);
     process.exit(1);
 });
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-    logger.info('Otrzymano sygnał SIGINT, zamykam bota...');
-    
+    logger.info('Received SIGINT signal, shutting down bot...');
+
     try {
         await client.destroy();
-        logger.info('Bot został pomyślnie zamknięty');
+        logger.info('Bot successfully shut down');
         process.exit(0);
     } catch (error) {
-        logger.error(`Błąd podczas zamykania bota: ${error.message}`);
+        logger.error(`Error shutting down bot: ${error.message}`);
         process.exit(1);
     }
 });
 
 process.on('SIGTERM', async () => {
-    logger.info('Otrzymano sygnał SIGTERM, zamykam bota...');
-    
+    logger.info('Received SIGTERM signal, shutting down bot...');
+
     try {
         await client.destroy();
-        logger.info('Bot został pomyślnie zamknięty');
+        logger.info('Bot successfully shut down');
         process.exit(0);
     } catch (error) {
-        logger.error(`Błąd podczas zamykania bota: ${error.message}`);
+        logger.error(`Error shutting down bot: ${error.message}`);
         process.exit(1);
     }
 });
 
-// Funkcja do odświeżania cache'u członków
+// Function to refresh member cache
 async function refreshMemberCache() {
     try {
-        logger.info('Odświeżanie cache\'u członków');
-        
+        logger.info('Refreshing member cache');
+
         let totalMembers = 0;
         let guildsProcessed = 0;
-        
+
         for (const guild of client.guilds.cache.values()) {
             try {
-                logger.info(`🏰 Przetwarzanie serwera: ${guild.name} (${guild.id})`);
-                
-                // Odśwież cache dla wszystkich członków serwera
+                logger.info(`🏰 Processing server: ${guild.name} (${guild.id})`);
+
+                // Refresh cache for all server members
                 const members = await guild.members.fetch();
-                
-                logger.info(`👥 Załadowano ${members.size} członków dla serwera ${guild.name}`);
+
+                logger.info(`👥 Loaded ${members.size} members for server ${guild.name}`);
                 totalMembers += members.size;
                 guildsProcessed++;
-                
-                // Sprawdź ile członków ma role target
+
+                // Check how many members have target roles
                 let targetRoleMembers = 0;
                 for (const roleId of Object.values(config.targetRoles)) {
                     const role = guild.roles.cache.get(roleId);
                     if (role) {
                         targetRoleMembers += role.members.size;
-                        logger.info(`🎭 Rola ${role.name}: ${role.members.size} członków`);
+                        logger.info(`🎭 Role ${role.name}: ${role.members.size} members`);
                     }
                 }
-                
-                logger.info(`✅ Serwer ${guild.name}: ${members.size} członków, ${targetRoleMembers} z rolami target`);
-                
+
+                logger.info(`✅ Server ${guild.name}: ${members.size} members, ${targetRoleMembers} with target roles`);
+
             } catch (error) {
-                logger.error(`❌ Błąd odświeżania cache'u dla serwera ${guild.name}: ${error.message}`);
+                logger.error(`❌ Error refreshing cache for server ${guild.name}: ${error.message}`);
             }
         }
-        
-        logger.info('Podsumowanie odświeżania cache\'u:');
-        logger.info(`🏰 Serwerów przetworzonych: ${guildsProcessed}`);
-        logger.info(`👥 Łączna liczba członków: ${totalMembers}`);
-        logger.info('✅ Odświeżanie cache\'u zakończone pomyślnie');
-        
+
+        logger.info('Member cache refresh summary:');
+        logger.info(`🏰 Servers processed: ${guildsProcessed}`);
+        logger.info(`👥 Total members: ${totalMembers}`);
+        logger.info('✅ Member cache refresh completed successfully');
+
     } catch (error) {
-        logger.error('Błąd odświeżania cache\'u');
-        logger.error('❌ Błąd odświeżania cache\'u członków:', error);
+        logger.error('Cache refresh error');
+        logger.error('❌ Error refreshing member cache:', error);
     }
 }
 
-// Funkcje do zarządzania botem
+// Bot management functions
 async function startBot() {
     try {
         if (!config.token) {
-            throw new Error('STALKER_DISCORD_TOKEN nie jest ustawiony w zmiennych środowiskowych');
+            throw new Error('STALKER_DISCORD_TOKEN is not set in environment variables');
         }
 
         await client.login(config.token);
         return client;
     } catch (error) {
-        logger.error(`Błąd uruchamiania bota: ${error.message}`);
+        logger.error(`Bot startup error: ${error.message}`);
         throw error;
     }
 }
 
 async function stopBot() {
     try {
-        logger.info('Zatrzymywanie bota Stalker...');
+        logger.info('Stopping Stalker bot...');
 
-        // Zatrzymaj serwis automatycznego usuwania wiadomości
+        // Stop automatic message cleanup service
         messageCleanupService.stop();
 
         await client.destroy();
-        logger.info('Bot został zatrzymany');
+        logger.info('Bot stopped');
     } catch (error) {
-        logger.error(`Błąd zatrzymywania bota: ${error.message}`);
+        logger.error(`Bot shutdown error: ${error.message}`);
         throw error;
     }
 }
 
-// Eksportuj funkcje do zarządzania botem
+// Export bot management functions
 module.exports = {
     client,
     startBot,
     stopBot,
     sharedState,
     refreshMemberCache,
-    
-    // Dla kompatybilności z głównym launcherem
+
+    // For compatibility with main launcher
     start: startBot,
     stop: stopBot
 };
