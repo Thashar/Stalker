@@ -74,7 +74,17 @@ const LOG_DIR = path.join(__dirname, '../logs');
 const LOG_FILE = path.join(LOG_DIR, 'bots.log');
 
 // Ładowanie .env na początku
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+const envPath = require('path').join(__dirname, '../.env');
+const envResult = require('dotenv').config({ path: envPath });
+
+// Diagnostyka ładowania .env
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('📋 Diagnostyka Discord Webhook:');
+console.log(`   .env path: ${envPath}`);
+console.log(`   .env exists: ${fs.existsSync(envPath)}`);
+if (envResult.error) {
+    console.warn(`   .env load error: ${envResult.error.message}`);
+}
 
 // Konfiguracja Discord webhook
 const WEBHOOK_URL = process.env.DISCORD_LOG_WEBHOOK_URL;
@@ -82,10 +92,23 @@ const WEBHOOK_ENABLED = !!WEBHOOK_URL;
 
 // Diagnostyka webhook przy starcie
 if (WEBHOOK_ENABLED) {
-    console.log('Discord Webhook: ENABLED');
+    const urlPreview = WEBHOOK_URL.substring(0, 50) + '...';
+    console.log('✅ Discord Webhook: ENABLED');
+    console.log(`   URL preview: ${urlPreview}`);
+
+    // Walidacja URL
+    try {
+        const testUrl = new URL(WEBHOOK_URL);
+        console.log(`   Hostname: ${testUrl.hostname}`);
+        console.log(`   Path length: ${testUrl.pathname.length} chars`);
+    } catch (error) {
+        console.error(`   ❌ Invalid URL format: ${error.message}`);
+    }
 } else {
-    console.warn('Discord Webhook: DISABLED (DISCORD_LOG_WEBHOOK_URL not set)');
+    console.warn('⚠️  Discord Webhook: DISABLED');
+    console.warn('   DISCORD_LOG_WEBHOOK_URL not set in .env');
 }
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
 // Kolejka webhook'ów i rate limiting
 const webhookQueue = [];
@@ -135,22 +158,26 @@ function writeToLogFile(botName, message, level = 'info') {
 // Funkcja do przetwarzania kolejki webhook'ów
 async function processWebhookQueue() {
     if (isProcessingQueue || webhookQueue.length === 0) return;
-    
+
     isProcessingQueue = true;
-    
+
     while (webhookQueue.length > 0) {
         const webhookData = webhookQueue.shift();
-        
+
         try {
             await sendWebhookRequest(webhookData);
             // Czekaj między webhook'ami aby uniknąć rate limiting
             await new Promise(resolve => setTimeout(resolve, WEBHOOK_DELAY));
         } catch (error) {
             // Loguj błąd do konsoli (nie przez webhook, aby uniknąć pętli)
-            originalConsole.error('Discord Webhook Error:', error.message);
+            originalConsole.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            originalConsole.error('❌ Discord Webhook Queue Error:');
+            originalConsole.error(`   Error: ${error.message}`);
+            originalConsole.error(`   Queue remaining: ${webhookQueue.length} messages`);
+            originalConsole.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         }
     }
-    
+
     isProcessingQueue = false;
 }
 
@@ -199,7 +226,13 @@ function sendWebhookRequest(webhookData) {
             });
 
             req.on('error', (error) => {
-                originalConsole.error('Discord Webhook Request Error:', error.message);
+                originalConsole.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                originalConsole.error('❌ Discord Webhook Request Error:');
+                originalConsole.error(`   Error: ${error.message}`);
+                originalConsole.error(`   Code: ${error.code || 'unknown'}`);
+                originalConsole.error(`   Hostname: ${options.hostname}`);
+                originalConsole.error(`   Path: ${options.path}`);
+                originalConsole.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 reject(error);
             });
 
