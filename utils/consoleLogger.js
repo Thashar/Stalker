@@ -80,6 +80,13 @@ require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const WEBHOOK_URL = process.env.DISCORD_LOG_WEBHOOK_URL;
 const WEBHOOK_ENABLED = !!WEBHOOK_URL;
 
+// Diagnostyka webhook przy starcie
+if (WEBHOOK_ENABLED) {
+    console.log('Discord Webhook: ENABLED');
+} else {
+    console.warn('Discord Webhook: DISABLED (DISCORD_LOG_WEBHOOK_URL not set)');
+}
+
 // Kolejka webhook'ów i rate limiting
 const webhookQueue = [];
 let isProcessingQueue = false;
@@ -139,7 +146,8 @@ async function processWebhookQueue() {
             // Czekaj między webhook'ami aby uniknąć rate limiting
             await new Promise(resolve => setTimeout(resolve, WEBHOOK_DELAY));
         } catch (error) {
-            // Kontynuuj mimo błędów
+            // Loguj błąd do konsoli (nie przez webhook, aby uniknąć pętli)
+            originalConsole.error('Discord Webhook Error:', error.message);
         }
     }
     
@@ -149,38 +157,58 @@ async function processWebhookQueue() {
 // Funkcja do wysyłania pojedynczego webhook'a
 function sendWebhookRequest(webhookData) {
     return new Promise((resolve, reject) => {
-        const data = JSON.stringify(webhookData);
-        const url = new URL(WEBHOOK_URL);
-        
-        const options = {
-            hostname: url.hostname,
-            path: url.pathname + url.search,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(data)
+        try {
+            if (!WEBHOOK_URL) {
+                return reject(new Error('WEBHOOK_URL is not configured'));
             }
-        };
-        
-        const req = https.request(options, (res) => {
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-                resolve();
-            } else if (res.statusCode === 429) {
-                // Rate limit - spróbuj ponownie po dłuższym czasie
-                setTimeout(() => {
-                    sendWebhookRequest(webhookData).then(resolve).catch(reject);
-                }, 5000);
-            } else {
-                reject(new Error(`Webhook error status: ${res.statusCode}`));
-            }
-        });
-        
-        req.on('error', (error) => {
+
+            const data = JSON.stringify(webhookData);
+            const url = new URL(WEBHOOK_URL);
+
+            const options = {
+                hostname: url.hostname,
+                path: url.pathname + url.search,
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(data)
+                }
+            };
+
+            const req = https.request(options, (res) => {
+                let responseBody = '';
+
+                res.on('data', (chunk) => {
+                    responseBody += chunk;
+                });
+
+                res.on('end', () => {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        resolve();
+                    } else if (res.statusCode === 429) {
+                        originalConsole.warn(`Discord Webhook Rate Limited. Retry after 5s`);
+                        // Rate limit - spróbuj ponownie po dłuższym czasie
+                        setTimeout(() => {
+                            sendWebhookRequest(webhookData).then(resolve).catch(reject);
+                        }, 5000);
+                    } else {
+                        originalConsole.error(`Discord Webhook HTTP ${res.statusCode}: ${responseBody}`);
+                        reject(new Error(`Webhook error status: ${res.statusCode}`));
+                    }
+                });
+            });
+
+            req.on('error', (error) => {
+                originalConsole.error('Discord Webhook Request Error:', error.message);
+                reject(error);
+            });
+
+            req.write(data);
+            req.end();
+        } catch (error) {
+            originalConsole.error('Discord Webhook Setup Error:', error.message);
             reject(error);
-        });
-        
-        req.write(data);
-        req.end();
+        }
     });
 }
 
