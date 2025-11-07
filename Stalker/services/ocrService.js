@@ -883,8 +883,12 @@ class OCRService {
             // Korean characters (common in nicks) - just preserve them
             'ㅐ': 'ae', 'ㅔ': 'e', 'ㅗ': 'o', 'ㅜ': 'u',
 
+            // Japanese/Chinese punctuation
+            '。': '.', '、': ',',
+            '和': '', // Chinese character sometimes mistakenly read
+
             // Dots (periods) - preserve
-            '.': '.', '_': '_'
+            '.': '.', '_': '_', '-': '', '|': '' // Remove dashes and pipes
         };
 
         let normalized = text.toLowerCase();
@@ -893,6 +897,9 @@ class OCRService {
         for (const [unicode, ascii] of Object.entries(charMap)) {
             normalized = normalized.split(unicode).join(ascii);
         }
+
+        // Remove all spaces to handle "Vhel lana" → "vhellana"
+        normalized = normalized.replace(/\s+/g, '');
 
         // Keep alphanumeric, Polish characters, CJK characters, and some special chars
         // Remove only truly problematic characters
