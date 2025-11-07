@@ -1616,6 +1616,9 @@ async function handlePhase1OverwriteButton(interaction, sharedState) {
         return;
     }
 
+    // Get server config
+    const serverConfig = config.getServerConfig(interaction.guild.id);
+
     // Detect user clan ponownie
     const targetRoleIds = Object.entries(serverConfig.targetRoles);
     let userClan = null;
@@ -2103,6 +2106,9 @@ async function handlePhase2OverwriteButton(interaction, sharedState) {
         });
         return;
     }
+
+    // Get server config
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     const targetRoleIds = Object.entries(serverConfig.targetRoles);
     let userClan = null;
