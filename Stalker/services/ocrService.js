@@ -1203,13 +1203,119 @@ class OCRService {
     }
 
     /**
+     * Ultra-aggressive normalization for OCR matching
+     * Maps Unicode look-alikes and removes everything except [a-z0-9]
+     */
+    ultraAggressiveNormalize(text) {
+        // Unicode look-alike mappings
+        const unicodeLookAlikes = {
+            // Greek letters commonly confused
+            'ℓ': 'l', 'υ': 'u', 'ν': 'v', 'ι': 'i', 'ο': 'o', 'α': 'a', 'ε': 'e',
+            'ϲ': 'c', 'ρ': 'p', 'τ': 't', 'κ': 'k', 'η': 'n', 'χ': 'x', 'ω': 'w',
+
+            // Cyrillic letters
+            'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c', 'у': 'y', 'х': 'x',
+            'і': 'i', 'ѕ': 's', 'һ': 'h', 'ј': 'j', 'ғ': 'f', 'и': 'n', 'ԁ': 'd',
+
+            // Nordic/special Latin
+            'ø': 'o', 'ð': 'd', 'þ': 'th', 'æ': 'ae', 'œ': 'oe',
+
+            // Common OCR confusions
+            '|': 'i', '!': 'i', '/': '', '\\': '', '~': '', '`': '', '´': '',
+            '\u2018': '', '\u2019': '', '\u201C': '', '\u201D': '', // curly quotes
+            '\u2212': '', '\u2013': '', '\u2014': '', // minus, en-dash, em-dash
+
+            // Stars and symbols from existing normalizeText
+            '☆': '', '★': '', '⚝': '', '✦': '', '✧': '', '☪': '', '➤': '',
+            'Ⓐ': 'a', 'ⓐ': 'a', '∈': 'e', '㋡': '',
+
+            // Remove all spaces, dashes, pipes, dots, underscores
+            ' ': '', '-': '', '_': '', '.': '', '|': '', ',': '', ';': '', ':': '',
+            '(': '', ')': '', '[': '', ']': '', '{': '', '}': '', '<': '', '>': '',
+
+            // Japanese/Chinese punctuation
+            '。': '', '、': '', '和': '', '四': '', '人': '', '八': '', '囚': '',
+            'ク': '', 'ゥ': '', '厂': '', '国': '', '國': '', '睡': '', '暮': '',
+            '閃': '', '暴': '', 'ー': '', 'デ': '', 'に': '', 'レ': '', 'モ': '',
+            'コ': '', 'ン': '', 'ョ': '', 'フ': '', 'ガ': '', 'タ': '', 'さ': '',
+            'る': '', 'ノ': '', 'お': '', 'ご': '', 'ヶ': '', 'ュ': '', '乙': '',
+            '伟': '', '目': '', 'ˇ': '', 'oe': '', '刊': '', '⑤': '5',
+
+            // Circled numbers (already in normalizeText but add here too)
+            '⓪': '0', '①': '1', '②': '2', '③': '3', '④': '4', '⑤': '5',
+            '⑥': '6', '⑦': '7', '⑧': '8', '⑨': '9', '⑩': '10',
+
+            // Superscripts/subscripts (remove for aggressive normalization)
+            'ᴬ': 'a', 'ᴮ': 'b', 'ᴰ': 'd', 'ᴱ': 'e', 'ᴳ': 'g', 'ᴴ': 'h', 'ᴵ': 'i',
+            'ᴶ': 'j', 'ᴷ': 'k', 'ᴸ': 'l', 'ᴹ': 'm', 'ᴺ': 'n', 'ᴼ': 'o', 'ᴾ': 'p',
+            'ᴿ': 'r', 'ᵀ': 't', 'ᵁ': 'u', 'ⱽ': 'v', 'ᵂ': 'w',
+            'ₐ': 'a', 'ₑ': 'e', 'ₕ': 'h', 'ᵢ': 'i', 'ⱼ': 'j', 'ₖ': 'k', 'ₗ': 'l',
+            'ₘ': 'm', 'ₙ': 'n', 'ₒ': 'o', 'ₚ': 'p', 'ᵣ': 'r', 'ₛ': 's', 'ₜ': 't',
+            'ᵤ': 'u', 'ᵥ': 'v', 'ₓ': 'x',
+            '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5',
+            '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+
+            // Korean
+            'ㅐ': 'ae', 'ㅔ': 'e', 'ㅗ': 'o', 'ㅜ': 'u', 'ㅣ': 'i'
+        };
+
+        let normalized = text.toLowerCase();
+
+        // Apply Unicode look-alike mappings
+        for (const [unicode, replacement] of Object.entries(unicodeLookAlikes)) {
+            normalized = normalized.split(unicode.toLowerCase()).join(replacement);
+        }
+
+        // Remove ALL non-alphanumeric characters (keep only a-z, 0-9)
+        normalized = normalized.replace(/[^a-z0-9]/g, '');
+
+        return normalized;
+    }
+
+    /**
+     * Extract score from end of line
+     * Converts circled numbers and regular numbers to integer
+     */
+    extractScoreFromLine(line) {
+        // First convert circled numbers to regular numbers
+        const circledMap = {
+            '⓪': '0', '①': '1', '②': '2', '③': '3', '④': '4', '⑤': '5',
+            '⑥': '6', '⑦': '7', '⑧': '8', '⑨': '9', '⑩': '10'
+        };
+
+        let normalized = line;
+        for (const [circled, digit] of Object.entries(circledMap)) {
+            normalized = normalized.split(circled).join(digit);
+        }
+
+        // Extract all number sequences from the line
+        const numberMatches = normalized.match(/\d+/g);
+
+        if (!numberMatches || numberMatches.length === 0) {
+            return null;
+        }
+
+        // Get the last number sequence (most likely to be the score)
+        const lastNumber = numberMatches[numberMatches.length - 1];
+        const score = parseInt(lastNumber);
+
+        // Validate score is reasonable (0-9999)
+        if (score >= 0 && score <= 9999) {
+            return score;
+        }
+
+        return null;
+    }
+
+    /**
      * Extract all players with their scores (not just zeros)
      * Used for /phase1 command
+     * NEW ALGORITHM: For each known nick, search all OCR lines
      * @param {string} snapshotPath - Optional path to nickname snapshot file
      */
     async extractAllPlayersWithScores(text, guild = null, requestingMember = null, snapshotPath = null) {
         try {
-            logger.info('[PHASE1] 🎯 Starting extraction of all players with scores...');
+            logger.info('[PHASE1] 🎯 NEW ALGORITHM: For each known nick, search all OCR lines');
 
             if (!guild || !requestingMember) {
                 logger.error('[PHASE1] ❌ Missing guild or requestingMember - cannot continue');
@@ -1231,100 +1337,65 @@ class OCRService {
                 return [];
             }
 
-            logger.info(`[PHASE1] 👥 Found ${roleNicks.length} nicks from role`);
+            logger.info(`[PHASE1] 👥 Found ${roleNicks.length} nicks to search for`);
 
             // Prepare OCR lines
             const lines = text.split('\n').filter(line => line.trim().length > 0);
             const validLines = lines.filter(line => line.trim().length >= 5);
 
-            logger.info(`[PHASE1] 📋 Analyzing ${validLines.length}/${lines.length} lines`);
+            logger.info(`[PHASE1] 📋 Searching in ${validLines.length}/${lines.length} OCR lines`);
 
             const playersWithScores = [];
-            const processedNicks = new Set();
+            const foundNicks = new Set();
 
-            // Dla każdej linii znajdź najlepiej dopasowany nick z roli
-            for (let i = 0; i < validLines.length; i++) {
-                const line = validLines[i];
+            // NEW ALGORITHM: For each known nick, search all lines
+            for (const roleNick of roleNicks) {
+                const originalNick = roleNick.displayName;
+                const normalizedNick = this.ultraAggressiveNormalize(originalNick);
 
-                // Znajdź najlepsze dopasowanie ze wszystkich nicków z roli
-                let bestMatch = null;
-                let bestSimilarity = 0;
-
-                for (const roleNick of roleNicks) {
-                    const similarity = this.calculateLineSimilarity(line, roleNick.displayName);
-
-                    let requiredSimilarity = 0.6;
-                    if (roleNick.displayName.length <= 5) {
-                        requiredSimilarity = 0.75;
-                    } else if (roleNick.displayName.length <= 8) {
-                        requiredSimilarity = 0.7;
-                    }
-
-                    if (similarity >= requiredSimilarity &&
-                        (similarity > bestSimilarity ||
-                         (similarity === bestSimilarity && roleNick.displayName.length > (bestMatch?.displayName?.length || 0)))) {
-                        bestSimilarity = similarity;
-                        bestMatch = roleNick;
-                    }
+                // Skip very short normalized nicks (too many false positives)
+                if (normalizedNick.length < 3) {
+                    continue;
                 }
 
-                if (bestMatch) {
-                    // Sprawdź czy już przetworzyliśmy tego gracza
-                    if (processedNicks.has(bestMatch.displayName)) {
-                        continue;
-                    }
+                // Search for this nick in all OCR lines
+                for (const line of validLines) {
+                    const normalizedLine = this.ultraAggressiveNormalize(line);
 
-                    // Wyciągnij wynik z końca linii
-                    const endResult = this.analyzeLineEnd(line, bestMatch.displayName);
+                    // Check if normalized nick appears in normalized line
+                    if (normalizedLine.includes(normalizedNick)) {
+                        // Extract score from this line
+                        const score = this.extractScoreFromLine(line);
 
-                    // Jeśli nick ma 10+ liter i nie znaleziono wyniku w tej linii, sprawdź następną
-                    let finalScore = null;
+                        if (score !== null) {
+                            // Avoid duplicates (keep first occurrence)
+                            if (!foundNicks.has(originalNick)) {
+                                foundNicks.add(originalNick);
+                                playersWithScores.push({
+                                    nick: originalNick,
+                                    score: score
+                                });
 
-                    if (bestMatch.displayName.length >= 10 && endResult.type === 'unknown') {
-                        const currentLineText = line.trim();
-                        const allLines = text.split('\n').filter(line => line.trim().length > 0);
-                        const currentLineIndex = allLines.findIndex(l => l.trim() === currentLineText);
-
-                        if (currentLineIndex !== -1 && currentLineIndex + 1 < allLines.length) {
-                            const nextLine = allLines[currentLineIndex + 1];
-                            const nextEndResult = this.analyzeLineEnd(nextLine, null);
-
-                            if (nextEndResult.type === 'zero') {
-                                finalScore = 0;
-                            } else if (nextEndResult.type === 'negative') {
-                                finalScore = parseInt(nextEndResult.value) || 0;
+                                logger.info(`[PHASE1] ✅ "${originalNick}" → ${score} punktów`);
+                                logger.info(`[PHASE1]    📝 OCR line: "${line.trim()}"`);
+                                logger.info(`[PHASE1]    🔍 Normalized nick: "${normalizedNick}" found in: "${normalizedLine}"`);
                             }
+                            break; // Found this nick, move to next nick
                         }
-                    } else {
-                        // Wynik w tej samej linii
-                        if (endResult.type === 'zero') {
-                            finalScore = 0;
-                        } else if (endResult.type === 'negative') {
-                            finalScore = parseInt(endResult.value) || 0;
-                        } else if (endResult.type === 'unknown') {
-                            // Spróbuj wyciągnąć liczbę z wartości
-                            const numberMatch = endResult.value.match(/\d+/);
-                            if (numberMatch) {
-                                finalScore = parseInt(numberMatch[0]) || 0;
-                            }
-                        }
-                    }
-
-                    // Tylko jeśli udało się wyciągnąć wynik
-                    if (finalScore !== null) {
-                        processedNicks.add(bestMatch.displayName);
-
-                        playersWithScores.push({
-                            nick: bestMatch.displayName,
-                            score: finalScore
-                        });
-
-                        logger.info(`[PHASE1] ✅ "${bestMatch.displayName}" → ${finalScore} punktów`);
                     }
                 }
             }
 
-            logger.info(`[PHASE1] 📊 Found ${playersWithScores.length} players with scores`);
+            logger.info(`[PHASE1] 📊 Found ${playersWithScores.length}/${roleNicks.length} players with scores`);
+
+            // Log nicks that were NOT found
+            const notFound = roleNicks.filter(rn => !foundNicks.has(rn.displayName));
+            if (notFound.length > 0 && notFound.length <= 10) {
+                logger.info(`[PHASE1] ⚠️ Not found (${notFound.length}): ${notFound.map(n => n.displayName).join(', ')}`);
+            } else if (notFound.length > 10) {
+                logger.info(`[PHASE1] ⚠️ Not found: ${notFound.length} players`);
+            }
+
             return playersWithScores;
 
         } catch (error) {
