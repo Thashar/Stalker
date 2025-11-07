@@ -1,12 +1,12 @@
 {
-  "example_guild_id_123456789": {
-    "serverName": "Example Server 1",
+  "1191849033564688465": {
+    "serverName": "StarVoidEmperors",
     "enabled": true,
     "allowedPunishRoles": [
-      "role_id_moderator_1",
-      "role_id_moderator_2",
-      "role_id_moderator_3",
-      "role_id_moderator_4"
+      "1436343245415125094",
+      "1325125029595447480",
+      "1381600716648349766",
+      "1192374627058597928"
     ],
     "punishmentRoleId": "role_id_punishment",
     "lotteryBanRoleId": "role_id_lottery_ban",
