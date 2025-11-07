@@ -144,29 +144,23 @@ class OCRService {
             // Zaawansowane przetwarzanie obrazu dla czarnego tekstu
             const processedBuffer = await sharp(imageBuffer)
                 .greyscale()
-                // 1. Zwiększanie rozdzielczości x2 (nowe)
+                // 1. Zwiększanie rozdzielczości x4 dla lepszej jakości małego tekstu
                 .resize(newWidth, newHeight, { kernel: 'lanczos3' })
-                // 2. Gamma correction (nowe)
-                .gamma(this.config.ocr.imageProcessing.gamma)
-                // 3. Median filter - redukcja szumów (nowe)
+                // 2. Median filter - redukcja szumów przed innymi operacjami
                 .median(this.config.ocr.imageProcessing.median)
-                // 4. Blur - rozmycie krawędzi (nowe)
-                .blur(this.config.ocr.imageProcessing.blur)
-                // 5. Normalizacja dla pełnego wykorzystania zakresu tonalnego (zachowane)
+                // 3. Gamma correction dla wyrównania jasności
+                .gamma(this.config.ocr.imageProcessing.gamma)
+                // 4. Normalizacja dla pełnego wykorzystania zakresu tonalnego
                 .normalize()
-                // 6. INWERSJA OBRAZU - biały tekst staje się czarnym (zachowane)
+                // 5. INWERSJA OBRAZU - biały tekst staje się czarnym
                 .negate()
-                // 7. Mocniejszy kontrast po inwersji dla ostrzejszego tekstu (zachowane)
+                // 6. Mocniejszy kontrast po inwersji dla ostrzejszego tekstu
                 .linear(this.config.ocr.imageProcessing.contrast, -100)
-                // 8. Wyostrzenie krawędzi tekstu (zachowane)
+                // 7. Lekkie rozmycie dla wygładzenia artefaktów
+                .blur(this.config.ocr.imageProcessing.blur)
+                // 8. Wyostrzenie krawędzi tekstu
                 .sharpen({ sigma: 0.5, m1: 0, m2: 2, x1: 2, y2: 10 })
-                // 9. Operacja morfologiczna - zamykanie luk w literach (zachowane)
-                .convolve({
-                    width: 3,
-                    height: 3,
-                    kernel: [0, -1, 0, -1, 5, -1, 0, -1, 0]
-                })
-                // 10. Finalna binaryzacja - wszystkie odcienie szarości → białe, tekst → czarny (zachowane)
+                // 9. Finalna binaryzacja - wszystkie odcienie szarości → białe, tekst → czarny
                 .threshold(this.config.ocr.imageProcessing.whiteThreshold, { greyscale: false })
                 .png();
             
