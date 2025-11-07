@@ -22,8 +22,8 @@ class OCRService {
                 await fs.mkdir(this.processedDir, { recursive: true });
             }
             logger.info('[OCR] ✅ OCR service initialized');
-            logger.info('[OCR] 🌍 Language support: Polish + English + Chinese (Simplified)');
-            logger.info('[OCR] 🔤 Unicode support: Special characters, superscripts/subscripts');
+            logger.info('[OCR] 🌍 Language support: Polish + English + Chinese + Japanese');
+            logger.info('[OCR] 🔤 Unicode support: Special characters, superscripts/subscripts, CJK');
         } catch (error) {
             logger.error('[OCR] ❌ OCR initialization error:', error);
         }
@@ -44,11 +44,12 @@ class OCRService {
             processedBuffer = await this.processImageWithSharp(buffer);
 
             logger.info('Running OCR');
-            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim', {
+            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim+jpn', {
                 // Removed tessedit_char_whitelist to support all Unicode characters
                 // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
                 // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
-                // and Chinese characters: 约瑟夫
+                // Chinese characters: 约瑟夫
+                // Japanese characters: Hiragana (あいうえお), Katakana (アイウエオ), Kanji (日本語)
             });
 
             logger.info('🔤 Text read from OCR:');
@@ -90,11 +91,12 @@ class OCRService {
             processedBuffer = await this.processImageWithSharp(imageBuffer);
 
             logger.info('[PHASE1] 🔄 Running OCR on file...');
-            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim', {
+            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim+jpn', {
                 // Removed tessedit_char_whitelist to support all Unicode characters
                 // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
                 // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
-                // and Chinese characters: 约瑟夫
+                // Chinese characters: 约瑟夫
+                // Japanese characters: Hiragana (あいうえお), Katakana (アイウエオ), Kanji (日本語)
             });
 
             logger.info('[PHASE1] 🔤 Text read from OCR:');
@@ -881,8 +883,12 @@ class OCRService {
             // Korean characters (common in nicks) - just preserve them
             'ㅐ': 'ae', 'ㅔ': 'e', 'ㅗ': 'o', 'ㅜ': 'u',
 
+            // Japanese/Chinese punctuation
+            '。': '.', '、': ',',
+            '和': '', // Chinese character sometimes mistakenly read
+
             // Dots (periods) - preserve
-            '.': '.', '_': '_'
+            '.': '.', '_': '_', '-': '', '|': '' // Remove dashes and pipes
         };
 
         let normalized = text.toLowerCase();
@@ -892,9 +898,16 @@ class OCRService {
             normalized = normalized.split(unicode).join(ascii);
         }
 
-        // Keep alphanumeric, Polish characters, Chinese characters, and some special chars
+        // Remove all spaces to handle "Vhel lana" → "vhellana"
+        normalized = normalized.replace(/\s+/g, '');
+
+        // Keep alphanumeric, Polish characters, CJK characters, and some special chars
         // Remove only truly problematic characters
-        normalized = normalized.replace(/[^\u4e00-\u9fa5a-z0-9ąćęłńóśźż*.]/g, '');
+        // Unicode ranges:
+        // - \u4e00-\u9fa5: Chinese/Kanji characters
+        // - \u3040-\u309f: Hiragana (あいうえお)
+        // - \u30a0-\u30ff: Katakana (アイウエオ)
+        normalized = normalized.replace(/[^\u4e00-\u9fa5\u3040-\u309f\u30a0-\u30ffa-z0-9ąćęłńóśźż*.]/g, '');
 
         return normalized;
     }

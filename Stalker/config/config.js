@@ -119,7 +119,7 @@ module.exports = {
 
         // Detailed OCR logging
         detailedLogging: {
-            enabled: false,  // Disabled by default
+            enabled: true,  // Enable detailed logging to diagnose matching issues
             logSimilarityCalculations: true,
             logLineAnalysis: true,
             logNickMatching: true,
