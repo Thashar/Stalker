@@ -213,7 +213,6 @@ function sendWebhookRequest(webhookData) {
                     if (res.statusCode >= 200 && res.statusCode < 300) {
                         resolve();
                     } else if (res.statusCode === 429) {
-                        originalConsole.warn(`Discord Webhook Rate Limited. Retry after 5s`);
                         // Rate limit - spróbuj ponownie po dłuższym czasie
                         setTimeout(() => {
                             sendWebhookRequest(webhookData).then(resolve).catch(reject);
