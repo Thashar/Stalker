@@ -130,18 +130,21 @@ async function handleSlashCommand(interaction, sharedState) {
 }
 
 async function handlePunishCommand(interaction, config, ocrService, punishmentService) {
+    // Get server-specific configuration
+    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
     const attachment = interaction.options.getAttachment('image');
-    
+
     if (!attachment) {
         await interaction.reply({ content: messages.errors.noImage, flags: MessageFlags.Ephemeral });
         return;
     }
-    
+
     if (!attachment.contentType?.startsWith('image/')) {
         await interaction.reply({ content: messages.errors.invalidImage, flags: MessageFlags.Ephemeral });
         return;
     }
-    
+
     try {
         // First respond with info about starting analysis
         await interaction.reply({ content: '🔍 Refreshing member cache and analyzing image...', flags: MessageFlags.Ephemeral });
@@ -159,8 +162,8 @@ async function handlePunishCommand(interaction, config, ocrService, punishmentSe
             return;
         }
 
-        // Check uncertain results before confirmation
-        await checkUncertainResults(interaction, zeroScorePlayers, attachment.url, config, punishmentService, text);
+        // Check uncertain results before confirmation (pass serverConfig instead of config)
+        await checkUncertainResults(interaction, zeroScorePlayers, attachment.url, serverConfig, punishmentService, text);
 
     } catch (error) {
         logger.error('[PUNISH] ❌ /punish command error:', error);
@@ -368,16 +371,19 @@ async function handlePointsCommand(interaction, config, databaseService, punishm
 }
 
 async function handleDebugRolesCommand(interaction, config) {
+    // Get server-specific configuration
+    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
     const category = interaction.options.getString('category');
-    const roleId = config.targetRoles[category];
-    
+    const roleId = serverConfig.targetRoles[category];
+
     if (!roleId) {
         await interaction.reply({ content: 'Invalid category!', flags: MessageFlags.Ephemeral });
         return;
     }
-    
+
     await interaction.deferReply();
-    
+
     // Refresh member cache before checking roles
     try {
         logger.info('🔄 Refreshing member cache for debug-roles...');
@@ -386,10 +392,10 @@ async function handleDebugRolesCommand(interaction, config) {
     } catch (error) {
         logger.error('❌ Cache refresh error:', error);
     }
-    
+
     try {
         const role = interaction.guild.roles.cache.get(roleId);
-        const roleName = config.roleDisplayNames[category];
+        const roleName = serverConfig.roleDisplayNames[category];
         
         if (!role) {
             await interaction.editReply({ content: 'Role not found!', flags: MessageFlags.Ephemeral });
@@ -416,21 +422,21 @@ async function handleDebugRolesCommand(interaction, config) {
         }
         
         // Punishment role info
-        const punishmentRole = interaction.guild.roles.cache.get(config.punishmentRoleId);
-        const punishmentRoleInfo = punishmentRole ? `<@&${config.punishmentRoleId}>` : 'Not found';
-        
+        const punishmentRole = interaction.guild.roles.cache.get(serverConfig.punishmentRoleId);
+        const punishmentRoleInfo = punishmentRole ? `<@&${serverConfig.punishmentRoleId}>` : 'Not found';
+
         // Warning channel
-        const warningChannelId = config.warningChannels[roleId];
+        const warningChannelId = serverConfig.warningChannels[roleId];
         const warningChannel = interaction.guild.channels.cache.get(warningChannelId);
         const warningChannelInfo = warningChannel ? `<#${warningChannelId}>` : 'Not found';
-        
+
         const embed = new EmbedBuilder()
             .setTitle(`🔧 Debug - ${roleName}`)
             .setDescription(`**Role:** <@&${roleId}>\n**Role ID:** ${roleId}\n**Member count:** ${members.size}`)
             .addFields(
                 { name: '👥 Members', value: membersList.length > 1024 ? membersList.substring(0, 1020) + '...' : membersList, inline: false },
                 { name: '🎭 Punishment role (2+ pts)', value: punishmentRoleInfo, inline: true },
-                { name: '🚨 Lottery ban role (3+ pts)', value: `<@&${config.lotteryBanRoleId}>`, inline: true },
+                { name: '🚨 Lottery ban role (3+ pts)', value: `<@&${serverConfig.lotteryBanRoleId}>`, inline: true },
                 { name: '📢 Warning channel', value: warningChannelInfo, inline: true },
                 { name: '⚙️ Configuration', value: `Category: ${category}\nTimezone: ${config.timezone}\nBoss deadline: ${config.bossDeadline.hour}:${config.bossDeadline.minute.toString().padStart(2, '0')}`, inline: false }
             )
@@ -447,8 +453,11 @@ async function handleDebugRolesCommand(interaction, config) {
 
 async function handleSelectMenu(interaction, config, reminderService, sharedState) {
     if (interaction.customId === 'reminder_role_select') {
+        // Get server-specific configuration
+        const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
         const selectedRole = interaction.values[0];
-        const roleId = config.targetRoles[selectedRole];
+        const roleId = serverConfig.targetRoles[selectedRole];
 
         if (!roleId) {
             await interaction.reply({ content: 'Invalid role!', flags: MessageFlags.Ephemeral });
@@ -459,7 +468,7 @@ async function handleSelectMenu(interaction, config, reminderService, sharedStat
 
         try {
             await reminderService.sendBulkReminder(interaction.guild, roleId);
-            await interaction.editReply({ content: `✅ Sent reminder to role ${config.roleDisplayNames[selectedRole]}` });
+            await interaction.editReply({ content: `✅ Sent reminder to role ${serverConfig.roleDisplayNames[selectedRole]}` });
         } catch (error) {
             logger.error('[REMINDER] ❌ Reminder sending error:', error);
             await interaction.editReply({ content: messages.errors.unknownError });
@@ -1513,9 +1522,12 @@ async function handleModalSubmit(interaction, sharedState) {
 async function handlePhase1Command(interaction, sharedState) {
     const { config, phaseService, databaseService } = sharedState;
 
+    // Get server-specific configuration
+    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
     // Check permissions (admin or allowedPunishRoles)
     const isAdmin = interaction.member.permissions.has('Administrator');
-    const hasPunishRole = hasPermission(interaction.member, config.allowedPunishRoles);
+    const hasPunishRole = hasPermission(interaction.member, serverConfig.allowedPunishRoles);
 
     if (!isAdmin && !hasPunishRole) {
         await interaction.reply({
@@ -1529,13 +1541,13 @@ async function handlePhase1Command(interaction, sharedState) {
 
     try {
         // Detect user clan
-        const targetRoleIds = Object.entries(config.targetRoles);
+        const targetRoleIds = Object.entries(serverConfig.targetRoles);
         let userClan = null;
 
         for (const [clanKey, roleId] of targetRoleIds) {
             if (interaction.member.roles.cache.has(roleId)) {
                 userClan = clanKey;
-                logger.info(`[PHASE1] 🎯 Detected user clan: ${clanKey} (${config.roleDisplayNames[clanKey]})`);
+                logger.info(`[PHASE1] 🎯 Detected user clan: ${clanKey} (${serverConfig.roleDisplayNames[clanKey]})`);
                 break;
             }
         }
@@ -2072,9 +2084,12 @@ async function showPhase1FinalSummary(interaction, session, phaseService) {
 async function handlePhase2Command(interaction, sharedState) {
     const { config, phaseService, databaseService } = sharedState;
 
+    // Get server-specific configuration
+    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
     // Check permissions (admin or allowedPunishRoles)
     const isAdmin = interaction.member.permissions.has('Administrator');
-    const hasPunishRole = hasPermission(interaction.member, config.allowedPunishRoles);
+    const hasPunishRole = hasPermission(interaction.member, serverConfig.allowedPunishRoles);
 
     if (!isAdmin && !hasPunishRole) {
         await interaction.reply({
@@ -2088,13 +2103,13 @@ async function handlePhase2Command(interaction, sharedState) {
 
     try {
         // Detect user clan
-        const targetRoleIds = Object.entries(config.targetRoles);
+        const targetRoleIds = Object.entries(serverConfig.targetRoles);
         let userClan = null;
 
         for (const [clanKey, roleId] of targetRoleIds) {
             if (interaction.member.roles.cache.has(roleId)) {
                 userClan = clanKey;
-                logger.info(`[PHASE2] 🎯 Detected user clan: ${clanKey} (${config.roleDisplayNames[clanKey]})`);
+                logger.info(`[PHASE2] 🎯 Detected user clan: ${clanKey} (${serverConfig.roleDisplayNames[clanKey]})`);
                 break;
             }
         }
@@ -2725,8 +2740,11 @@ async function handleAddRoundSelect(interaction, sharedState) {
 async function showUserSelectMenu(interaction, sharedState, phase, clan, weekNumber, round) {
     const { config, databaseService } = sharedState;
 
+    // Get server-specific configuration
+    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
     // Pobierz role ID for wybranego klanu
-    const clanRoleId = config.targetRoles[clan];
+    const clanRoleId = serverConfig.targetRoles[clan];
 
     if (!clanRoleId) {
         await interaction.update({
@@ -2864,9 +2882,12 @@ async function handleAddUserSelect(interaction, sharedState) {
 async function handleAddCommand(interaction, sharedState) {
     const { config, databaseService } = sharedState;
 
+    // Get server-specific configuration
+    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
     // Check permissions (admin or allowedPunishRoles)
     const isAdmin = interaction.member.permissions.has('Administrator');
-    const hasPunishRole = hasPermission(interaction.member, config.allowedPunishRoles);
+    const hasPunishRole = hasPermission(interaction.member, serverConfig.allowedPunishRoles);
 
     if (!isAdmin && !hasPunishRole) {
         await interaction.reply({
@@ -2877,7 +2898,7 @@ async function handleAddCommand(interaction, sharedState) {
     }
 
     // Detect user clan
-    const targetRoleIds = Object.entries(config.targetRoles);
+    const targetRoleIds = Object.entries(serverConfig.targetRoles);
     let userClan = null;
 
     for (const [clanKey, roleId] of targetRoleIds) {
@@ -3131,9 +3152,12 @@ async function handleAddModalSubmit(interaction, sharedState) {
 async function handleModifyCommand(interaction, sharedState) {
     const { config, databaseService } = sharedState;
 
+    // Get server-specific configuration
+    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
     // Check permissions (admin or allowedPunishRoles)
     const isAdmin = interaction.member.permissions.has('Administrator');
-    const hasPunishRole = hasPermission(interaction.member, config.allowedPunishRoles);
+    const hasPunishRole = hasPermission(interaction.member, serverConfig.allowedPunishRoles);
 
     if (!isAdmin && !hasPunishRole) {
         await interaction.reply({
@@ -3144,7 +3168,7 @@ async function handleModifyCommand(interaction, sharedState) {
     }
 
     // Detect user clan
-    const targetRoleIds = Object.entries(config.targetRoles);
+    const targetRoleIds = Object.entries(serverConfig.targetRoles);
     let userClan = null;
 
     for (const [clanKey, roleId] of targetRoleIds) {
@@ -4970,9 +4994,12 @@ async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, 
 async function handleResultsCommand(interaction, sharedState) {
     const { config } = sharedState;
 
+    // Get server-specific configuration
+    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
     // Sprawdź czy kanał jest dozwolony
     const allowedChannels = [
-        ...Object.values(config.warningChannels),
+        ...Object.values(serverConfig.warningChannels),
         '1348200849242984478'
     ];
 
@@ -4991,9 +5018,9 @@ async function handleResultsCommand(interaction, sharedState) {
 
     try {
         // Utwórz select menu z klanami (bez parametru phase)
-        const clanOptions = Object.entries(config.targetRoles).map(([clanKey, roleId]) => {
+        const clanOptions = Object.entries(serverConfig.targetRoles).map(([clanKey, roleId]) => {
             return new StringSelectMenuOptionBuilder()
-                .setLabel(config.roleDisplayNames[clanKey])
+                .setLabel(serverConfig.roleDisplayNames[clanKey])
                 .setValue(clanKey);
         });
 
