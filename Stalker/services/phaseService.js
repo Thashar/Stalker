@@ -20,6 +20,17 @@ class PhaseService {
     }
 
     /**
+     * Get server configuration or throw error if not configured
+     */
+    getServerConfigOrThrow(guildId) {
+        const serverConfig = this.config.getServerConfig(guildId);
+        if (!serverConfig) {
+            throw new Error(`Bot is not configured for server ${guildId}. Check servers.json configuration.`);
+        }
+        return serverConfig;
+    }
+
+    /**
      * Checks if someone is currently processing in a guild
      */
     isProcessingActive(guildId) {
@@ -1085,8 +1096,10 @@ class PhaseService {
     /**
      * Creates final summary embed
      */
-    createFinalSummaryEmbed(stats, weekInfo, clan, phase = 1) {
-        const clanName = this.config.roleDisplayNames[clan] || clan;
+    createFinalSummaryEmbed(stats, weekInfo, clan, phase = 1, guildId) {
+        // Get server-specific configuration
+        const serverConfig = this.getServerConfigOrThrow(guildId);
+        const clanName = serverConfig.roleDisplayNames[clan] || clan;
         const phaseTitle = phase === 2 ? 'Phase 2' : 'Phase 1';
         const phasePrefix = phase === 2 ? 'phase2' : 'phase1';
 
@@ -1154,7 +1167,9 @@ class PhaseService {
         const createdDate = new Date(existingData.createdAt);
         const dateStr = createdDate.toLocaleString('en-US');
 
-        const clanName = this.config.roleDisplayNames[clan] || clan;
+        // Get server-specific configuration
+        const serverConfig = this.getServerConfigOrThrow(guildId);
+        const clanName = serverConfig.roleDisplayNames[clan] || clan;
 
         const fields = [
             { name: '📅 Save date', value: dateStr, inline: true }

@@ -298,11 +298,14 @@ async function refreshMemberCache() {
 
                 // Check how many members have target roles
                 let targetRoleMembers = 0;
-                for (const roleId of Object.values(config.targetRoles)) {
-                    const role = guild.roles.cache.get(roleId);
-                    if (role) {
-                        targetRoleMembers += role.members.size;
-                        logger.info(`🎭 Role ${role.name}: ${role.members.size} members`);
+                const guildServerConfig = config.getServerConfig(guild.id);
+                if (guildServerConfig && guildServerConfig.targetRoles) {
+                    for (const roleId of Object.values(guildServerConfig.targetRoles)) {
+                        const role = guild.roles.cache.get(roleId);
+                        if (role) {
+                            targetRoleMembers += role.members.size;
+                            logger.info(`🎭 Role ${role.name}: ${role.members.size} members`);
+                        }
                     }
                 }
 

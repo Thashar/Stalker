@@ -223,7 +223,7 @@ async function handleRemindCommand(interaction, config, ocrService, reminderServ
             zeroScorePlayers: zeroScorePlayers, // Original nicks for display
             imageUrl: attachment.url,
             originalUserId: interaction.user.id,
-            config: config,
+            config: serverConfig,
             reminderService: reminderService
         });
 
@@ -1210,7 +1210,7 @@ async function showUncertaintyQuestion(interaction, uncertainPlayers, allPlayers
         uncertainPlayers: uncertainPlayers,
         allPlayers: allPlayers,
         imageUrl: imageUrl,
-        config: config,
+        config: serverConfig,
         punishmentService: punishmentService,
         originalUserId: interaction.user.id
     });
@@ -1258,7 +1258,7 @@ async function showUncertaintyQuestionWithUpdate(interaction, uncertainPlayers, 
         uncertainPlayers: uncertainPlayers,
         allPlayers: allPlayers,
         imageUrl: imageUrl,
-        config: config,
+        config: serverConfig,
         punishmentService: punishmentService,
         originalUserId: interaction.user.id
     });
@@ -1323,7 +1323,7 @@ async function showFinalConfirmation(interaction, finalPlayers, imageUrl, config
         zeroScorePlayers: finalPlayers,
         imageUrl: imageUrl,
         originalUserId: interaction.user.id,
-        config: config,
+        config: serverConfig,
         punishmentService: punishmentService
     });
     
@@ -1388,7 +1388,7 @@ async function showFinalConfirmationWithUpdate(interaction, finalPlayers, imageU
         zeroScorePlayers: finalPlayers,
         imageUrl: imageUrl,
         originalUserId: interaction.user.id,
-        config: config,
+        config: serverConfig,
         punishmentService: punishmentService
     });
     
@@ -1555,7 +1555,7 @@ async function handlePhase1Command(interaction, sharedState) {
         if (!userClan) {
             await interaction.editReply({
                 content: '❌ Your clan was not detected. You must have one of the roles: ' +
-                    Object.values(config.roleDisplayNames).join(', ')
+                    Object.values(serverConfig.roleDisplayNames).join(', ')
             });
             return;
         }
@@ -1746,7 +1746,7 @@ async function handlePhase1OverwriteButton(interaction, sharedState) {
     }
 
     // Detect user clan ponownie
-    const targetRoleIds = Object.entries(config.targetRoles);
+    const targetRoleIds = Object.entries(serverConfig.targetRoles);
     let userClan = null;
 
     for (const [clanKey, roleId] of targetRoleIds) {
@@ -1863,7 +1863,7 @@ async function handlePhase1CompleteButton(interaction, sharedState) {
             }
         } else {
             // No conflicts - proceed to final summary
-            await showPhase1FinalSummary(interaction, session, phaseService);
+            await showPhase1FinalSummary(interaction, session, phaseService, sharedState.config);
         }
 
     } catch (error) {
@@ -1935,7 +1935,7 @@ async function handlePhase1ConflictResolveButton(interaction, sharedState) {
             components: []
         });
 
-        await showPhase1FinalSummary(interaction, session, phaseService);
+        await showPhase1FinalSummary(interaction, session, phaseService, sharedState.config);
     }
 }
 
@@ -1989,7 +1989,9 @@ async function handlePhase1FinalConfirmButton(interaction, sharedState) {
 
         const weekInfo = phaseService.getCurrentWeekInfo();
         const stats = phaseService.calculateStatistics(finalResults);
-        const clanName = sharedState.config.roleDisplayNames[session.clan] || session.clan;
+        // Get server-specific configuration
+        const serverConfig = sharedState.config.getServerConfig(session.guildId);
+        const clanName = serverConfig.roleDisplayNames[session.clan] || session.clan;
 
         // Zbierz nicki players z wynikiem 0
         const playersWithZero = [];
@@ -2039,7 +2041,7 @@ async function handlePhase1FinalConfirmButton(interaction, sharedState) {
     }
 }
 
-async function showPhase1FinalSummary(interaction, session, phaseService) {
+async function showPhase1FinalSummary(interaction, session, phaseService, config) {
     const finalResults = phaseService.getFinalResults(session);
     const stats = phaseService.calculateStatistics(finalResults);
     const weekInfo = phaseService.getCurrentWeekInfo();
@@ -2063,10 +2065,12 @@ async function showPhase1FinalSummary(interaction, session, phaseService) {
         return `${progressBar} ${position}. ${player.displayName} - ${player.score.toLocaleString('pl-PL')}`;
     }).join('\n');
 
-    const summaryEmbed = phaseService.createFinalSummaryEmbed(stats, weekInfo, session.clan, 1);
+    // Get server-specific configuration
+    const serverConfig = config.getServerConfig(session.guildId);
+    const summaryEmbed = phaseService.createFinalSummaryEmbed(stats, weekInfo, session.clan, 1, session.guildId);
 
     // Add players list to description
-    const clanName = phaseService.config.roleDisplayNames[session.clan] || session.clan;
+    const clanName = serverConfig.roleDisplayNames[session.clan] || session.clan;
     summaryEmbed.embed.setDescription(
         `**Clan:** ${clanName}\n**Week:** ${weekInfo.weekNumber}/${weekInfo.year}\n**TOP30:** ${stats.top30Sum.toLocaleString('en-US')} pts\n\n${resultsText}\n\n✅ Analyzed all images and resolved conflicts.\n\n**⚠️ Carefully verify that the final read result matches the actual points earned in the game.**\n**Accept the result only when everything matches!**`
     );
@@ -2117,7 +2121,7 @@ async function handlePhase2Command(interaction, sharedState) {
         if (!userClan) {
             await interaction.editReply({
                 content: '❌ Your clan was not detected. You must have one of the roles: ' +
-                    Object.values(config.roleDisplayNames).join(', ')
+                    Object.values(serverConfig.roleDisplayNames).join(', ')
             });
             return;
         }
@@ -2229,7 +2233,7 @@ async function handlePhase2OverwriteButton(interaction, sharedState) {
         return;
     }
 
-    const targetRoleIds = Object.entries(config.targetRoles);
+    const targetRoleIds = Object.entries(serverConfig.targetRoles);
     let userClan = null;
 
     for (const [clanKey, roleId] of targetRoleIds) {
@@ -2346,7 +2350,7 @@ async function handlePhase2CompleteButton(interaction, sharedState) {
         logger.info(`[PHASE2] ✅ All conflicts resolved!`);
 
         // Pokaż summary rundy (działa for rund 1, 2 i 3)
-        await showPhase2RoundSummary(interaction, session, phaseService);
+        await showPhase2RoundSummary(interaction, session, phaseService, sharedState.config);
         return;
     }
 
@@ -2371,7 +2375,7 @@ async function handlePhase2CompleteButton(interaction, sharedState) {
             });
         } else {
             // Brak konfliktów - pokaż summary rundy
-            await showPhase2RoundSummary(interaction, session, phaseService);
+            await showPhase2RoundSummary(interaction, session, phaseService, sharedState.config);
         }
     } catch (error) {
         logger.error('[PHASE2] ❌ Error analizy:', error);
@@ -2475,7 +2479,9 @@ async function handlePhase2FinalConfirmButton(interaction, sharedState) {
         );
 
         const stats = phaseService.calculateStatistics(summedResults);
-        const clanName = sharedState.config.roleDisplayNames[session.clan] || session.clan;
+        // Get server-specific configuration
+        const serverConfig = sharedState.config.getServerConfig(session.guildId);
+        const clanName = serverConfig.roleDisplayNames[session.clan] || session.clan;
 
         // Oblicz sumę zer z wszystkich 3 rund
         let totalZeroCount = 0;
@@ -2511,7 +2517,7 @@ async function handlePhase2FinalConfirmButton(interaction, sharedState) {
     }
 }
 
-async function showPhase2FinalSummary(interaction, session, phaseService) {
+async function showPhase2FinalSummary(interaction, session, phaseService, config) {
     logger.info(`[PHASE2] 📋 Creating final summary...`);
 
     try {
@@ -2536,7 +2542,7 @@ async function showPhase2FinalSummary(interaction, session, phaseService) {
         const weekInfo = phaseService.getCurrentWeekInfo();
 
         logger.info(`[PHASE2] 🎨 Creating summary embed...`);
-        const summaryEmbed = phaseService.createFinalSummaryEmbed(stats, weekInfo, session.clan, 2);
+        const summaryEmbed = phaseService.createFinalSummaryEmbed(stats, weekInfo, session.clan, 2, session.guildId);
 
         session.stage = 'final_confirmation';
 
@@ -2616,7 +2622,7 @@ async function handlePhase2RoundContinue(interaction, sharedState) {
         });
 
         try {
-            await showPhase2FinalSummary(interaction, session, phaseService);
+            await showPhase2FinalSummary(interaction, session, phaseService, sharedState.config);
         } catch (error) {
             logger.error(`[PHASE2] ❌ Error while wyświetlania podsumowania:`, error);
             throw error;
@@ -2624,7 +2630,7 @@ async function handlePhase2RoundContinue(interaction, sharedState) {
     }
 }
 
-async function showPhase2RoundSummary(interaction, session, phaseService) {
+async function showPhase2RoundSummary(interaction, session, phaseService, config) {
     logger.info(`[PHASE2] 📋 Creating round summary ${session.currentRound}...`);
 
     // Oblicz statystyki for tej rundy
@@ -2651,7 +2657,9 @@ async function showPhase2RoundSummary(interaction, session, phaseService) {
     }).join('\n');
 
     const weekInfo = phaseService.getCurrentWeekInfo();
-    const clanName = phaseService.config.roleDisplayNames[session.clan] || session.clan;
+    // Get server-specific configuration
+    const serverConfig = config.getServerConfig(session.guildId);
+    const clanName = serverConfig.roleDisplayNames[session.clan] || session.clan;
 
     const embed = new EmbedBuilder()
         .setTitle(`✅ Round ${session.currentRound}/3 - Podsumowanie`)
@@ -2835,7 +2843,7 @@ async function showUserSelectMenu(interaction, sharedState, phase, clan, weekNum
 
     const embed = new EmbedBuilder()
         .setTitle(`➕ Dodaj gracza - ${phaseTitle}${roundText}`)
-        .setDescription(`**Step ${stepNumber}:** Select user\n**Week:** ${weekNumber}\n**Clan:** ${config.roleDisplayNames[clan]}\n\nAvailable users: **${sortedMembers.length}**`)
+        .setDescription(`**Step ${stepNumber}:** Select user\n**Week:** ${weekNumber}\n**Clan:** ${serverConfig.roleDisplayNames[clan]}\n\nAvailable users: **${sortedMembers.length}**`)
         .setColor('#00FF00')
         .setTimestamp();
 
@@ -3192,7 +3200,7 @@ async function handleModifyCommand(interaction, sharedState) {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         // Skip clan selection and go directly to selecting week
-        await showModifyWeekSelection(interaction, databaseService, config, userClan, selectedPhase, null, 0);
+        await showModifyWeekSelection(interaction, databaseService, serverConfig, userClan, selectedPhase, null, 0);
 
     } catch (error) {
         logger.error('[MODIFY] ❌ Error command /modify:', error);
@@ -3297,6 +3305,9 @@ async function showModifyWeekSelection(interaction, databaseService, config, use
 async function handleModifyClanSelect(interaction, sharedState) {
     const { databaseService, config } = sharedState;
 
+    // Get server-specific configuration
+    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
     await interaction.deferUpdate();
 
     try {
@@ -3306,7 +3317,7 @@ async function handleModifyClanSelect(interaction, sharedState) {
         const selectedClan = interaction.values[0];
 
         // Step 2: Pokaż wybór tygodnia
-        await showModifyWeekSelection(interaction, databaseService, config, selectedClan, selectedPhase, null, 0);
+        await showModifyWeekSelection(interaction, databaseService, serverConfig, selectedClan, selectedPhase, null, 0);
 
     } catch (error) {
         logger.error('[MODIFY] ❌ Error selecting clan:', error);
