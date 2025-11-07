@@ -47,6 +47,9 @@ class OCRService {
             const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim+jpn', {
                 // Load language files from /home/user/Stalker/ directory
                 langPath: path.join(__dirname, '../../'),
+                // Tesseract parameters for better table recognition
+                tessedit_pageseg_mode: '6',      // PSM 6: Uniform block of text (good for tables)
+                tessedit_ocr_engine_mode: '1',   // OEM 1: LSTM neural net mode (best accuracy)
                 // Removed tessedit_char_whitelist to support all Unicode characters
                 // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
                 // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
@@ -96,6 +99,9 @@ class OCRService {
             const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim+jpn', {
                 // Load language files from /home/user/Stalker/ directory
                 langPath: path.join(__dirname, '../../'),
+                // Tesseract parameters for better table recognition
+                tessedit_pageseg_mode: '6',      // PSM 6: Uniform block of text (good for tables)
+                tessedit_ocr_engine_mode: '1',   // OEM 1: LSTM neural net mode (best accuracy)
                 // Removed tessedit_char_whitelist to support all Unicode characters
                 // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
                 // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
