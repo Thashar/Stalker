@@ -31,10 +31,27 @@ async function handleInteraction(interaction, sharedState, config) {
             await handleModalSubmit(interaction, sharedState);
         }
     } catch (error) {
-        logger.error('[INTERACTION] ❌ Interaction handling error:', error);
-        logger.error('[INTERACTION] ❌ Error message:', error?.message);
-        logger.error('[INTERACTION] ❌ Stack trace:', error?.stack);
-        logger.error('[INTERACTION] ❌ Full error object:', JSON.stringify(error, null, 2));
+        logger.error('[INTERACTION] ❌ Interaction handling error:');
+        logger.error('[INTERACTION] ❌ Command:', interaction.commandName || interaction.customId || 'unknown');
+        logger.error('[INTERACTION] ❌ Guild:', interaction.guild?.name || 'unknown');
+        logger.error('[INTERACTION] ❌ Error type:', typeof error);
+        logger.error('[INTERACTION] ❌ Error message:', error?.message || 'no message');
+        logger.error('[INTERACTION] ❌ Error name:', error?.name || 'no name');
+        logger.error('[INTERACTION] ❌ Stack trace:', error?.stack || 'no stack');
+
+        // Try to log error as string
+        try {
+            logger.error('[INTERACTION] ❌ Error toString:', String(error));
+        } catch (e) {
+            logger.error('[INTERACTION] ❌ Cannot convert error to string');
+        }
+
+        // Try to log error properties
+        try {
+            logger.error('[INTERACTION] ❌ Error keys:', Object.keys(error || {}));
+        } catch (e) {
+            logger.error('[INTERACTION] ❌ Cannot get error keys');
+        }
 
         const errorEmbed = new EmbedBuilder()
             .setTitle('❌ An error occurred')
