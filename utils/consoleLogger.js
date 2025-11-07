@@ -154,7 +154,7 @@ function sendWebhookRequest(webhookData) {
         
         const options = {
             hostname: url.hostname,
-            path: url.pathname,
+            path: url.pathname + url.search,
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
