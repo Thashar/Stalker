@@ -2565,6 +2565,7 @@ async function showPhase2RoundSummary(interaction, session, phaseService, config
 
 async function handleAddWeekSelect(interaction, sharedState) {
     const { config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
     const [prefix, phase, clan] = interaction.customId.split('|');
     const selectedWeek = interaction.values[0];
 
@@ -2594,7 +2595,7 @@ async function handleAddWeekSelect(interaction, sharedState) {
 
         const embed = new EmbedBuilder()
             .setTitle('➕ Dodaj gracza - Phase 2')
-            .setDescription(`**Step 2/3:** Select round\n**Week:** ${selectedWeek}\n**Clan:** ${config.roleDisplayNames[clan]}`)
+            .setDescription(`**Step 2/3:** Select round\n**Week:** ${selectedWeek}\n**Clan:** ${serverConfig.roleDisplayNames[clan]}`)
             .setColor('#00FF00')
             .setTimestamp();
 
@@ -2798,7 +2799,7 @@ async function handleAddCommand(interaction, sharedState) {
     const selectedPhase = interaction.options.getString('phase');
 
     try {
-        const clanName = config.roleDisplayNames[userClan];
+        const clanName = serverConfig.roleDisplayNames[userClan];
 
         // Pobierz dostępne tygodnie for tego klanu
         const availableWeeks = await databaseService.getAvailableWeeks(interaction.guild.id);
@@ -2817,7 +2818,7 @@ async function handleAddCommand(interaction, sharedState) {
             return new StringSelectMenuOptionBuilder()
                 .setLabel(`Week ${week.weekNumber}/${week.year}`)
                 .setValue(`${week.weekNumber}-${week.year}`)
-                .setDescription(`${week.clans.map(c => config.roleDisplayNames[c]).join(', ')}`);
+                .setDescription(`${week.clans.map(c => serverConfig.roleDisplayNames[c]).join(', ')}`);
         });
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -2852,6 +2853,7 @@ async function handleAddCommand(interaction, sharedState) {
 
 async function handleAddModalSubmit(interaction, sharedState) {
     const { config, databaseService } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
     const customIdParts = interaction.customId.split('|');
     const [prefix, phase, clan, weekNumber, round, userId] = customIdParts;
 
@@ -2921,7 +2923,7 @@ async function handleAddModalSubmit(interaction, sharedState) {
                     .setDescription(`Added gracza **${displayName}** z wynikiem **${scoreNum}**`)
                     .addFields(
                         { name: 'Week', value: `${week}/${year}`, inline: true },
-                        { name: 'Clan', value: config.roleDisplayNames[clan], inline: true },
+                        { name: 'Clan', value: serverConfig.roleDisplayNames[clan], inline: true },
                         { name: 'TOP30 (suma)', value: top30Sum.toString(), inline: true }
                     )
                     .setColor('#00FF00')
@@ -3008,7 +3010,7 @@ async function handleAddModalSubmit(interaction, sharedState) {
                     .setDescription(`Added gracza **${displayName}** z wynikiem **${scoreNum}**`)
                     .addFields(
                         { name: 'Week', value: `${week}/${year}`, inline: true },
-                        { name: 'Clan', value: config.roleDisplayNames[clan], inline: true },
+                        { name: 'Clan', value: serverConfig.roleDisplayNames[clan], inline: true },
                         { name: 'Round', value: roundName, inline: true },
                         { name: 'Total (summary)', value: summarySum.toString(), inline: false }
                     )
@@ -3082,8 +3084,8 @@ async function handleModifyCommand(interaction, sharedState) {
     }
 }
 
-async function showModifyWeekSelection(interaction, databaseService, config, userClan, selectedPhase, selectedRound = null, page = 0) {
-    const clanName = config.roleDisplayNames[userClan];
+async function showModifyWeekSelection(interaction, databaseService, serverConfig, userClan, selectedPhase, selectedRound = null, page = 0) {
+    const clanName = serverConfig.roleDisplayNames[userClan];
 
     // Pobierz dostępne tygodnie for wybranego klanu i fazy
     let allWeeks;
@@ -3201,6 +3203,7 @@ async function handleModifyClanSelect(interaction, sharedState) {
 
 async function handleModifyRoundSelect(interaction, sharedState) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     await interaction.deferUpdate();
 
@@ -3213,7 +3216,7 @@ async function handleModifyRoundSelect(interaction, sharedState) {
         const selectedRound = interaction.values[0];
 
         const [weekNumber, year] = weekKey.split('-').map(Number);
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
 
         // Pobierz wyniki for wybranego tygodnia
         const weekData = await databaseService.getPhase2Results(interaction.guild.id, weekNumber, year, clan);
@@ -3322,6 +3325,7 @@ async function handleModifyRoundSelect(interaction, sharedState) {
 
 async function handleModifyWeekSelect(interaction, sharedState, page = 0) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     await interaction.deferUpdate();
 
@@ -3334,7 +3338,7 @@ async function handleModifyWeekSelect(interaction, sharedState, page = 0) {
         const [clan, weekKey] = selectedValue.split('|');
         const [weekNumber, year] = weekKey.split('-').map(Number);
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
 
         // Dla Fazy 2 - pokaż wybór rundy
         if (selectedPhase === 'phase2') {
@@ -3564,6 +3568,7 @@ async function handleModifyPlayerSelect(interaction, sharedState) {
 
 async function handleModifyPaginationButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     await interaction.deferUpdate();
 
@@ -3586,7 +3591,7 @@ async function handleModifyPaginationButton(interaction, sharedState) {
             newPage = currentPage + 1;
         }
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
 
         // Pobierz wyniki for wybranego tygodnia i klanu
         let weekData;
@@ -3732,6 +3737,7 @@ async function handleModifyPaginationButton(interaction, sharedState) {
 
 async function handleModifyWeekPaginationButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     try {
         const parts = interaction.customId.split('|');
@@ -3747,7 +3753,7 @@ async function handleModifyWeekPaginationButton(interaction, sharedState) {
             newPage = currentPage + 1;
         }
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
 
         // Pobierz dostępne tygodnie for wybranego klanu
         const allWeeks = await databaseService.getAvailableWeeks(interaction.guild.id);
@@ -3836,6 +3842,7 @@ async function handleModifyWeekPaginationButton(interaction, sharedState) {
 
 async function handleModifyModalSubmit(interaction, sharedState) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     try {
         // Parsuj customId: modify_modal_phase1|clan|week|userId lub modify_modal_phase2|round1|clan|week|userId
@@ -3903,7 +3910,7 @@ async function handleModifyModalSubmit(interaction, sharedState) {
             return;
         }
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
         const phaseTitle = selectedPhase === 'phase2' ? 'Phase 2' : 'Phase 1';
         const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Total'}` : '';
 
@@ -3950,6 +3957,7 @@ async function handleModifyModalSubmit(interaction, sharedState) {
 
 async function handleModifyConfirmButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     if (interaction.customId === 'modify_cancel') {
         await interaction.update({
@@ -4076,7 +4084,7 @@ async function handleModifyConfirmButton(interaction, sharedState) {
             );
         }
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
         const phaseTitle = selectedPhase === 'phase2' ? 'Phase 2' : 'Phase 1';
         const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Total'}` : '';
 
@@ -4119,8 +4127,9 @@ async function handleResultsClanSelect(interaction, sharedState, page = 0) {
     await interaction.deferUpdate();
 
     try {
+        const serverConfig = config.getServerConfig(interaction.guild.id);
         const selectedClan = interaction.values[0];
-        const clanName = config.roleDisplayNames[selectedClan];
+        const clanName = serverConfig.roleDisplayNames[selectedClan];
 
         // Pobierz dostępne tygodnie for wybranego klanu z obu faz
         const allWeeksPhase1 = await databaseService.getAvailableWeeks(interaction.guild.id);
@@ -4293,6 +4302,7 @@ async function handleResultsWeekPaginationButton(interaction, sharedState) {
 
 async function handleResultsWeekSelect(interaction, sharedState, view = 'phase1') {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     await interaction.deferUpdate();
 
@@ -4301,7 +4311,7 @@ async function handleResultsWeekSelect(interaction, sharedState, view = 'phase1'
         const [clan, weekKey] = selectedValue.split('|');
         const [weekNumber, year] = weekKey.split('-').map(Number);
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
 
         // Pobierz dane z obu faz
         const weekDataPhase1 = await databaseService.getPhase1Results(interaction.guild.id, weekNumber, year, clan);
@@ -4401,7 +4411,8 @@ async function handleResultsPhase2ViewButton(interaction, sharedState) {
 }
 
 async function showPhase2Results(interaction, weekData, clan, weekNumber, year, view, config, isUpdate = false) {
-    const clanName = config.roleDisplayNames[clan];
+    const serverConfig = config.getServerConfig(interaction.guild.id);
+    const clanName = serverConfig.roleDisplayNames[clan];
 
     // Wybierz dane do wyświetlenia w zależności od widoku
     let players;
@@ -4506,7 +4517,8 @@ async function showPhase2Results(interaction, weekData, clan, weekNumber, year, 
 }
 
 async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, clan, weekNumber, year, view, config, isUpdate = false, useFollowUp = false) {
-    const clanName = config.roleDisplayNames[clan];
+    const serverConfig = config.getServerConfig(interaction.guild.id);
+    const clanName = serverConfig.roleDisplayNames[clan];
 
     // Wybierz dane do wyświetlenia w zależności od widoku
     let players;
