@@ -592,11 +592,18 @@ class OCRService {
             const foundUsers = [];
             const members = await guild.members.fetch();
             logger.info(`👥 Found ${members.size} server members`);
-            
+
+            // Get server-specific configuration
+            const serverConfig = this.config.getServerConfig(guild.id);
+            if (!serverConfig) {
+                logger.error(`❌ Server ${guild.id} not configured`);
+                return [];
+            }
+
             // Check if user has any TARGET role and restrict search
             let restrictToRole = null;
             if (requestingMember) {
-                const targetRoleIds = Object.values(this.config.targetRoles);
+                const targetRoleIds = Object.values(serverConfig.targetRoles);
                 for (const roleId of targetRoleIds) {
                     if (requestingMember.roles.cache.has(roleId)) {
                         restrictToRole = roleId;
@@ -674,7 +681,14 @@ class OCRService {
 
     async getRoleNicks(guild, requestingMember) {
         try {
-            const targetRoleIds = Object.values(this.config.targetRoles);
+            // Get server-specific configuration
+            const serverConfig = this.config.getServerConfig(guild.id);
+            if (!serverConfig) {
+                logger.error(`❌ Server ${guild.id} not configured`);
+                return [];
+            }
+
+            const targetRoleIds = Object.values(serverConfig.targetRoles);
             let userRoleId = null;
 
             // Find the role of the user executing the command

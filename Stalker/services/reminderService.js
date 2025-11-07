@@ -159,6 +159,13 @@ class ReminderService {
             logger.info(`🏰 Server: ${guild.name} (${guild.id})`);
             logger.info(`🎭 Role: ${roleId}`);
 
+            // Get server-specific configuration
+            const serverConfig = this.config.getServerConfig(guild.id);
+            if (!serverConfig) {
+                logger.error(`❌ Server ${guild.id} not configured`);
+                throw new Error('Server not configured');
+            }
+
             const role = guild.roles.cache.get(roleId);
 
             if (!role) {
@@ -175,7 +182,7 @@ class ReminderService {
                 .setTimestamp()
                 .setFooter({ text: 'Automatic reminder system' });
 
-            const warningChannelId = this.config.warningChannels[roleId];
+            const warningChannelId = serverConfig.warningChannels[roleId];
 
             if (warningChannelId) {
                 const warningChannel = guild.channels.cache.get(warningChannelId);
