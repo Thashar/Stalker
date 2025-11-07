@@ -22,6 +22,8 @@ class OCRService {
                 await fs.mkdir(this.processedDir, { recursive: true });
             }
             logger.info('[OCR] ✅ OCR service initialized');
+            logger.info('[OCR] 🌍 Language support: Polish + English + Chinese (Simplified)');
+            logger.info('[OCR] 🔤 Unicode support: Special characters, superscripts/subscripts');
         } catch (error) {
             logger.error('[OCR] ❌ OCR initialization error:', error);
         }
@@ -42,8 +44,11 @@ class OCRService {
             processedBuffer = await this.processImageWithSharp(buffer);
 
             logger.info('Running OCR');
-            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol', {
-                tessedit_char_whitelist: this.config.ocr.polishAlphabet
+            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim', {
+                // Removed tessedit_char_whitelist to support all Unicode characters
+                // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
+                // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
+                // and Chinese characters: 约瑟夫
             });
 
             logger.info('🔤 Text read from OCR:');
@@ -85,8 +90,11 @@ class OCRService {
             processedBuffer = await this.processImageWithSharp(imageBuffer);
 
             logger.info('[PHASE1] 🔄 Running OCR on file...');
-            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol', {
-                tessedit_char_whitelist: this.config.ocr.polishAlphabet
+            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim', {
+                // Removed tessedit_char_whitelist to support all Unicode characters
+                // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
+                // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
+                // and Chinese characters: 约瑟夫
             });
 
             logger.info('[PHASE1] 🔤 Text read from OCR:');
@@ -839,10 +847,62 @@ class OCRService {
         }
     }
 
+    /**
+     * Normalize text for better matching with Unicode characters
+     * Maps special Unicode characters to their ASCII equivalents
+     */
+    normalizeText(text) {
+        // Map of special Unicode characters to their normalized equivalents
+        const charMap = {
+            // Stars and special symbols
+            '☆': '*', '★': '*', '⚝': '*', '✦': '*', '✧': '*',
+            '☪': '*', // Crescent and star
+            '➤': '>', // Arrow
+            'Ⓐ': 'A', 'ⓐ': 'a',
+            '∈': 'E', // Element symbol
+
+            // Circle-enclosed characters
+            '㋡': '', // Remove complex circles
+
+            // Superscripts
+            'ᴬ': 'A', 'ᴮ': 'B', 'ᴰ': 'D', 'ᴱ': 'E', 'ᴳ': 'G', 'ᴴ': 'H', 'ᴵ': 'I',
+            'ᴶ': 'J', 'ᴷ': 'K', 'ᴸ': 'L', 'ᴹ': 'M', 'ᴺ': 'N', 'ᴼ': 'O', 'ᴾ': 'P',
+            'ᴿ': 'R', 'ᵀ': 'T', 'ᵁ': 'U', 'ⱽ': 'V', 'ᵂ': 'W',
+
+            // Subscripts
+            'ₐ': 'a', 'ₑ': 'e', 'ₕ': 'h', 'ᵢ': 'i', 'ⱼ': 'j', 'ₖ': 'k', 'ₗ': 'l',
+            'ₘ': 'm', 'ₙ': 'n', 'ₒ': 'o', 'ₚ': 'p', 'ᵣ': 'r', 'ₛ': 's', 'ₜ': 't',
+            'ᵤ': 'u', 'ᵥ': 'v', 'ₓ': 'x',
+
+            // Superscript numbers
+            '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5',
+            '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+
+            // Korean characters (common in nicks) - just preserve them
+            'ㅐ': 'ae', 'ㅔ': 'e', 'ㅗ': 'o', 'ㅜ': 'u',
+
+            // Dots (periods) - preserve
+            '.': '.', '_': '_'
+        };
+
+        let normalized = text.toLowerCase();
+
+        // Replace mapped characters
+        for (const [unicode, ascii] of Object.entries(charMap)) {
+            normalized = normalized.split(unicode).join(ascii);
+        }
+
+        // Keep alphanumeric, Polish characters, Chinese characters, and some special chars
+        // Remove only truly problematic characters
+        normalized = normalized.replace(/[^\u4e00-\u9fa5a-z0-9ąćęłńóśźż*.]/g, '');
+
+        return normalized;
+    }
 
     calculateLineSimilarity(line, nick) {
-        const lineLower = line.toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]/g, ''); // Usuń wszystkie znaki specjalne oprócz polskich
-        const nickLower = nick.toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]/g, '');
+        // Use normalization instead of simple character removal
+        const lineLower = this.normalizeText(line);
+        const nickLower = this.normalizeText(nick);
         
         // Sprawdź czy nick występuje w linii, ale tylko jeśli nick ma 3+ znaki
         // To zapobiega false positive dla krótkich fragmentów jak "21"
