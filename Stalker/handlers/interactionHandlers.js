@@ -1457,13 +1457,16 @@ async function handleOcrDebugCommand(interaction, config) {
 async function handleDecodeCommand(interaction, sharedState) {
     const { config, survivorService } = sharedState;
 
+    // Get server-specific configuration
+    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
+
     // Sprawdź czy kanał jest zablokowany for command /decode
     const currentChannelId = interaction.channelId;
     const parentChannelId = interaction.channel?.parent?.id;
 
     // Check if this is an allowed channel or thread in an allowed channel
-    const isAllowedChannel = config.allowedDecodeChannels.includes(currentChannelId) ||
-                            config.allowedDecodeChannels.includes(parentChannelId);
+    const isAllowedChannel = serverConfig.allowedDecodeChannels.includes(currentChannelId) ||
+                            serverConfig.allowedDecodeChannels.includes(parentChannelId);
 
     // Administrators can use the command anywhere
     const isAdmin = interaction.member.permissions.has('Administrator');
