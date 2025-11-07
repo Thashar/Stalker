@@ -77,8 +77,8 @@ async function handleInteraction(interaction, sharedState, config) {
 async function handleSlashCommand(interaction, sharedState) {
     const { config, databaseService, ocrService, punishmentService, reminderService, survivorService, phaseService } = sharedState;
 
-    // Check permissions for all commands except /decode and /results
-    const publicCommands = ['decode', 'results'];
+    // Check permissions for all commands except /results
+    const publicCommands = ['results'];
     if (!publicCommands.includes(interaction.commandName)) {
         const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
         if (!hasPermission(interaction.member, serverConfig.allowedPunishRoles)) {
@@ -105,9 +105,6 @@ async function handleSlashCommand(interaction, sharedState) {
             break;
         case 'ocr-debug':
             await handleOcrDebugCommand(interaction, config);
-            break;
-        case 'decode':
-            await handleDecodeCommand(interaction, sharedState);
             break;
         case 'phase1':
             await handlePhase1Command(interaction, sharedState);
@@ -1076,10 +1073,6 @@ async function registerSlashCommands(client, config) {
                     ),
 
                 new SlashCommandBuilder()
-                    .setName('decode')
-                    .setDescription('Decode Survivor.io build code and display equipment data'),
-
-                new SlashCommandBuilder()
                     .setName('phase1')
                     .setDescription('Collect and save results of all players for Phase 1'),
 
@@ -1463,56 +1456,9 @@ async function handleOcrDebugCommand(interaction, config) {
     });
 }
 
-async function handleDecodeCommand(interaction, sharedState) {
-    const { config, survivorService } = sharedState;
-
-    // Get server-specific configuration
-    const serverConfig = getServerConfigOrThrow(interaction.guild.id, config);
-
-    // Sprawdź czy kanał jest zablokowany for command /decode
-    const currentChannelId = interaction.channelId;
-    const parentChannelId = interaction.channel?.parent?.id;
-
-    // Check if this is an allowed channel or thread in an allowed channel
-    const isAllowedChannel = serverConfig.allowedDecodeChannels.includes(currentChannelId) ||
-                            serverConfig.allowedDecodeChannels.includes(parentChannelId);
-
-    // Administrators can use the command anywhere
-    const isAdmin = interaction.member.permissions.has('Administrator');
-
-    if (!isAllowedChannel && !isAdmin) {
-        await interaction.reply({
-            content: '❌ Command `/decode` is available only on selected channels.',
-            flags: MessageFlags.Ephemeral
-        });
-        return;
-    }
-
-    // Display modal with field to enter code
-    const modal = new ModalBuilder()
-        .setCustomId('decode_modal')
-        .setTitle('Decode Survivor.io Build');
-
-    const codeInput = new TextInputBuilder()
-        .setCustomId('build_code')
-        .setLabel('Build Code')
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('Copy the code received after clicking "EXPORT" on https://sio-tools.vercel.app/')
-        .setRequired(true)
-        .setMinLength(10)
-        .setMaxLength(4000);
-
-    const actionRow = new ActionRowBuilder().addComponents(codeInput);
-    modal.addComponents(actionRow);
-
-    await interaction.showModal(modal);
-}
-
 async function handleModalSubmit(interaction, sharedState) {
-    if (interaction.customId === 'decode_modal') {
-        await handleDecodeModalSubmit(interaction, sharedState);
     // Modal results_attachments_modal was removed - now we use file upload directly
-    } else if (interaction.customId.startsWith('modify_modal_')) {
+    if (interaction.customId.startsWith('modify_modal_')) {
         await handleModifyModalSubmit(interaction, sharedState);
     } else if (interaction.customId.startsWith('add_modal|')) {
         await handleAddModalSubmit(interaction, sharedState);
@@ -1649,81 +1595,6 @@ async function handlePhase1Command(interaction, sharedState) {
 
         await interaction.editReply({
             content: '❌ An error occurred while initializing /phase1 command.'
-        });
-    }
-}
-
-async function handleDecodeModalSubmit(interaction, sharedState) {
-    const { config, survivorService } = sharedState;
-
-    const code = interaction.fields.getTextInputValue('build_code');
-
-    if (!code || code.trim().length === 0) {
-        await interaction.reply({
-            content: '❌ No code provided for decoding.',
-            flags: MessageFlags.Ephemeral
-        });
-        return;
-    }
-
-    await interaction.deferReply();
-
-    try {
-        const buildData = survivorService.decodeBuild(code.trim());
-
-        if (!buildData.success) {
-            await interaction.editReply({
-                content: `❌ **Failed to decode code**\n\n**Error:** ${buildData.error}\n**Code:** \`${code}\``,
-                flags: MessageFlags.Ephemeral
-            });
-            return;
-        }
-
-        const userDisplayName = interaction.member?.displayName || interaction.user.username;
-        const viewerDisplayName = interaction.member?.displayName || interaction.user.username;
-        const embeds = await survivorService.createBuildEmbeds(buildData.data, userDisplayName, code, viewerDisplayName);
-        const navigationButtons = survivorService.createNavigationButtons(0);
-        const response = await interaction.editReply({
-            embeds: [embeds[0]], // Start from first page
-            components: navigationButtons
-        });
-
-        // Store data for pagination
-        if (!sharedState.buildPagination) {
-            sharedState.buildPagination = new Map();
-        }
-
-        sharedState.buildPagination.set(response.id, {
-            embeds: embeds,
-            currentPage: 0,
-            userId: interaction.user.id,
-            timestamp: Date.now()
-        });
-
-        // Schedule message deletion after 15 minutes (persist across restarts)
-        const deleteAt = Date.now() + (15 * 60 * 1000); // 15 minut
-        await sharedState.messageCleanupService.scheduleMessageDeletion(
-            response.id,
-            response.channelId,
-            deleteAt,
-            interaction.user.id // Save owner
-        );
-
-        // Remove pagination data after 15 minutes (only if bot doesn't get restarted)
-        setTimeout(() => {
-            if (sharedState.buildPagination && sharedState.buildPagination.has(response.id)) {
-                sharedState.buildPagination.delete(response.id);
-            }
-        }, 15 * 60 * 1000);
-
-        logger.info(`✅ Successfully decoded Survivor.io build for ${interaction.user.tag}`);
-
-    } catch (error) {
-        logger.error(`❌ Survivor.io build decoding error: ${error.message}`);
-
-        await interaction.editReply({
-            content: `❌ **An error occurred while decoding**\n\n**Error:** ${error.message}\n**Code:** \`${code}\``,
-            flags: MessageFlags.Ephemeral
         });
     }
 }
@@ -2694,6 +2565,7 @@ async function showPhase2RoundSummary(interaction, session, phaseService, config
 
 async function handleAddWeekSelect(interaction, sharedState) {
     const { config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
     const [prefix, phase, clan] = interaction.customId.split('|');
     const selectedWeek = interaction.values[0];
 
@@ -2723,7 +2595,7 @@ async function handleAddWeekSelect(interaction, sharedState) {
 
         const embed = new EmbedBuilder()
             .setTitle('➕ Dodaj gracza - Phase 2')
-            .setDescription(`**Step 2/3:** Select round\n**Week:** ${selectedWeek}\n**Clan:** ${config.roleDisplayNames[clan]}`)
+            .setDescription(`**Step 2/3:** Select round\n**Week:** ${selectedWeek}\n**Clan:** ${serverConfig.roleDisplayNames[clan]}`)
             .setColor('#00FF00')
             .setTimestamp();
 
@@ -2927,7 +2799,7 @@ async function handleAddCommand(interaction, sharedState) {
     const selectedPhase = interaction.options.getString('phase');
 
     try {
-        const clanName = config.roleDisplayNames[userClan];
+        const clanName = serverConfig.roleDisplayNames[userClan];
 
         // Pobierz dostępne tygodnie for tego klanu
         const availableWeeks = await databaseService.getAvailableWeeks(interaction.guild.id);
@@ -2946,7 +2818,7 @@ async function handleAddCommand(interaction, sharedState) {
             return new StringSelectMenuOptionBuilder()
                 .setLabel(`Week ${week.weekNumber}/${week.year}`)
                 .setValue(`${week.weekNumber}-${week.year}`)
-                .setDescription(`${week.clans.map(c => config.roleDisplayNames[c]).join(', ')}`);
+                .setDescription(`${week.clans.map(c => serverConfig.roleDisplayNames[c]).join(', ')}`);
         });
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -2981,6 +2853,7 @@ async function handleAddCommand(interaction, sharedState) {
 
 async function handleAddModalSubmit(interaction, sharedState) {
     const { config, databaseService } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
     const customIdParts = interaction.customId.split('|');
     const [prefix, phase, clan, weekNumber, round, userId] = customIdParts;
 
@@ -3050,7 +2923,7 @@ async function handleAddModalSubmit(interaction, sharedState) {
                     .setDescription(`Added gracza **${displayName}** z wynikiem **${scoreNum}**`)
                     .addFields(
                         { name: 'Week', value: `${week}/${year}`, inline: true },
-                        { name: 'Clan', value: config.roleDisplayNames[clan], inline: true },
+                        { name: 'Clan', value: serverConfig.roleDisplayNames[clan], inline: true },
                         { name: 'TOP30 (suma)', value: top30Sum.toString(), inline: true }
                     )
                     .setColor('#00FF00')
@@ -3137,7 +3010,7 @@ async function handleAddModalSubmit(interaction, sharedState) {
                     .setDescription(`Added gracza **${displayName}** z wynikiem **${scoreNum}**`)
                     .addFields(
                         { name: 'Week', value: `${week}/${year}`, inline: true },
-                        { name: 'Clan', value: config.roleDisplayNames[clan], inline: true },
+                        { name: 'Clan', value: serverConfig.roleDisplayNames[clan], inline: true },
                         { name: 'Round', value: roundName, inline: true },
                         { name: 'Total (summary)', value: summarySum.toString(), inline: false }
                     )
@@ -3211,8 +3084,8 @@ async function handleModifyCommand(interaction, sharedState) {
     }
 }
 
-async function showModifyWeekSelection(interaction, databaseService, config, userClan, selectedPhase, selectedRound = null, page = 0) {
-    const clanName = config.roleDisplayNames[userClan];
+async function showModifyWeekSelection(interaction, databaseService, serverConfig, userClan, selectedPhase, selectedRound = null, page = 0) {
+    const clanName = serverConfig.roleDisplayNames[userClan];
 
     // Pobierz dostępne tygodnie for wybranego klanu i fazy
     let allWeeks;
@@ -3330,6 +3203,7 @@ async function handleModifyClanSelect(interaction, sharedState) {
 
 async function handleModifyRoundSelect(interaction, sharedState) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     await interaction.deferUpdate();
 
@@ -3342,7 +3216,7 @@ async function handleModifyRoundSelect(interaction, sharedState) {
         const selectedRound = interaction.values[0];
 
         const [weekNumber, year] = weekKey.split('-').map(Number);
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
 
         // Pobierz wyniki for wybranego tygodnia
         const weekData = await databaseService.getPhase2Results(interaction.guild.id, weekNumber, year, clan);
@@ -3451,6 +3325,7 @@ async function handleModifyRoundSelect(interaction, sharedState) {
 
 async function handleModifyWeekSelect(interaction, sharedState, page = 0) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     await interaction.deferUpdate();
 
@@ -3463,7 +3338,7 @@ async function handleModifyWeekSelect(interaction, sharedState, page = 0) {
         const [clan, weekKey] = selectedValue.split('|');
         const [weekNumber, year] = weekKey.split('-').map(Number);
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
 
         // Dla Fazy 2 - pokaż wybór rundy
         if (selectedPhase === 'phase2') {
@@ -3693,6 +3568,7 @@ async function handleModifyPlayerSelect(interaction, sharedState) {
 
 async function handleModifyPaginationButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     await interaction.deferUpdate();
 
@@ -3715,7 +3591,7 @@ async function handleModifyPaginationButton(interaction, sharedState) {
             newPage = currentPage + 1;
         }
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
 
         // Pobierz wyniki for wybranego tygodnia i klanu
         let weekData;
@@ -3861,6 +3737,7 @@ async function handleModifyPaginationButton(interaction, sharedState) {
 
 async function handleModifyWeekPaginationButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     try {
         const parts = interaction.customId.split('|');
@@ -3876,7 +3753,7 @@ async function handleModifyWeekPaginationButton(interaction, sharedState) {
             newPage = currentPage + 1;
         }
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
 
         // Pobierz dostępne tygodnie for wybranego klanu
         const allWeeks = await databaseService.getAvailableWeeks(interaction.guild.id);
@@ -3965,6 +3842,7 @@ async function handleModifyWeekPaginationButton(interaction, sharedState) {
 
 async function handleModifyModalSubmit(interaction, sharedState) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     try {
         // Parsuj customId: modify_modal_phase1|clan|week|userId lub modify_modal_phase2|round1|clan|week|userId
@@ -4032,7 +3910,7 @@ async function handleModifyModalSubmit(interaction, sharedState) {
             return;
         }
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
         const phaseTitle = selectedPhase === 'phase2' ? 'Phase 2' : 'Phase 1';
         const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Total'}` : '';
 
@@ -4079,6 +3957,7 @@ async function handleModifyModalSubmit(interaction, sharedState) {
 
 async function handleModifyConfirmButton(interaction, sharedState) {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     if (interaction.customId === 'modify_cancel') {
         await interaction.update({
@@ -4205,7 +4084,7 @@ async function handleModifyConfirmButton(interaction, sharedState) {
             );
         }
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
         const phaseTitle = selectedPhase === 'phase2' ? 'Phase 2' : 'Phase 1';
         const roundText = selectedRound ? ` - ${selectedRound === 'round1' ? 'Round 1' : selectedRound === 'round2' ? 'Round 2' : selectedRound === 'round3' ? 'Round 3' : 'Total'}` : '';
 
@@ -4248,8 +4127,9 @@ async function handleResultsClanSelect(interaction, sharedState, page = 0) {
     await interaction.deferUpdate();
 
     try {
+        const serverConfig = config.getServerConfig(interaction.guild.id);
         const selectedClan = interaction.values[0];
-        const clanName = config.roleDisplayNames[selectedClan];
+        const clanName = serverConfig.roleDisplayNames[selectedClan];
 
         // Pobierz dostępne tygodnie for wybranego klanu z obu faz
         const allWeeksPhase1 = await databaseService.getAvailableWeeks(interaction.guild.id);
@@ -4422,6 +4302,7 @@ async function handleResultsWeekPaginationButton(interaction, sharedState) {
 
 async function handleResultsWeekSelect(interaction, sharedState, view = 'phase1') {
     const { databaseService, config } = sharedState;
+    const serverConfig = config.getServerConfig(interaction.guild.id);
 
     await interaction.deferUpdate();
 
@@ -4430,7 +4311,7 @@ async function handleResultsWeekSelect(interaction, sharedState, view = 'phase1'
         const [clan, weekKey] = selectedValue.split('|');
         const [weekNumber, year] = weekKey.split('-').map(Number);
 
-        const clanName = config.roleDisplayNames[clan];
+        const clanName = serverConfig.roleDisplayNames[clan];
 
         // Pobierz dane z obu faz
         const weekDataPhase1 = await databaseService.getPhase1Results(interaction.guild.id, weekNumber, year, clan);
@@ -4530,7 +4411,8 @@ async function handleResultsPhase2ViewButton(interaction, sharedState) {
 }
 
 async function showPhase2Results(interaction, weekData, clan, weekNumber, year, view, config, isUpdate = false) {
-    const clanName = config.roleDisplayNames[clan];
+    const serverConfig = config.getServerConfig(interaction.guild.id);
+    const clanName = serverConfig.roleDisplayNames[clan];
 
     // Wybierz dane do wyświetlenia w zależności od widoku
     let players;
@@ -4635,7 +4517,8 @@ async function showPhase2Results(interaction, weekData, clan, weekNumber, year, 
 }
 
 async function showCombinedResults(interaction, weekDataPhase1, weekDataPhase2, clan, weekNumber, year, view, config, isUpdate = false, useFollowUp = false) {
-    const clanName = config.roleDisplayNames[clan];
+    const serverConfig = config.getServerConfig(interaction.guild.id);
+    const clanName = serverConfig.roleDisplayNames[clan];
 
     // Wybierz dane do wyświetlenia w zależności od widoku
     let players;

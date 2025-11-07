@@ -20,11 +20,8 @@
     },
     "warningChannels": {
       "1218828210914201691": "1436347958659518526",
-      "1381590501349654559": "1436347958659518526" 
-    },
-    "allowedDecodeChannels": [
-      "1436347958659518526"
-    ]
+      "1381590501349654559": "1436347958659518526"
+    }
   },
   "_comment": "To add a new server, copy the structure above and replace 'example_guild_id_123456789' with your actual Guild ID. You can find your server's Guild ID by right-clicking the server icon in Discord (with Developer Mode enabled) and selecting 'Copy ID'. Make sure to update all role IDs and channel IDs with the actual IDs from your Discord server."
 }

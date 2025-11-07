@@ -124,10 +124,6 @@ The bot analyzes screenshots from Lunar Mine Expedition battles:
          "squad_2_role_id": "warnings_channel_2_id",
          "main_squad_role_id": "warnings_channel_main_id"
        },
-       "allowedDecodeChannels": [
-         "channel_id_1",
-         "channel_id_2"
-       ],
        "vacationChannelId": "vacation_channel_id",
        "vacationRequestRoleId": "vacation_request_role_id"
        }
@@ -219,9 +215,6 @@ npm start
       "role_id_0": "channel_id_0",
       "role_id_1": "channel_id_1"
     },
-
-    // Channels where /decode command is allowed
-    "allowedDecodeChannels": ["channel_1", "channel_2"],
 
     // Channel for vacation requests
     "vacationChannelId": "channel_id",
