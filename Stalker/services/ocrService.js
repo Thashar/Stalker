@@ -884,6 +884,10 @@ class OCRService {
             '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5',
             '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
 
+            // Circled numbers (używane w wynikach/scores)
+            '⓪': '0', '①': '1', '②': '2', '③': '3', '④': '4', '⑤': '5',
+            '⑥': '6', '⑦': '7', '⑧': '8', '⑨': '9', '⑩': '10',
+
             // Korean characters (common in nicks) - just preserve them
             'ㅐ': 'ae', 'ㅔ': 'e', 'ㅗ': 'o', 'ㅜ': 'u',
 
