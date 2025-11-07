@@ -9,7 +9,6 @@ const DatabaseService = require('./services/databaseService');
 const OCRService = require('./services/ocrService');
 const PunishmentService = require('./services/punishmentService');
 const ReminderService = require('./services/reminderService');
-const VacationService = require('./services/vacationService');
 const SurvivorService = require('./services/survivorService');
 const MessageCleanupService = require('./services/messageCleanupService');
 const { createBotLogger } = require('../utils/consoleLogger');
@@ -30,7 +29,6 @@ const databaseService = new DatabaseService(config);
 const ocrService = new OCRService(config);
 const punishmentService = new PunishmentService(config, databaseService);
 const reminderService = new ReminderService(config);
-const vacationService = new VacationService(config, logger);
 const survivorService = new SurvivorService(config, logger);
 const messageCleanupService = new MessageCleanupService(config, logger);
 const PhaseService = require('./services/phaseService');
@@ -51,14 +49,13 @@ const sharedState = {
     ocrService,
     punishmentService,
     reminderService,
-    vacationService,
     survivorService,
     messageCleanupService,
     phaseService
 };
 
 client.once(Events.ClientReady, async () => {
-    logger.success('✅ Stalker ready - Boss punishments (OCR), vacations, multi-server support');
+    logger.success('✅ Stalker ready - Boss punishments (OCR), multi-server support');
 
     // Initialize services
     await databaseService.initializeDatabase();
@@ -80,15 +77,6 @@ client.once(Events.ClientReady, async () => {
         }
     }
 
-    // Ensure vacation message is last on channel
-    for (const guild of client.guilds.cache.values()) {
-        try {
-            await vacationService.ensureVacationMessageIsLast(guild);
-        } catch (error) {
-            logger.error(`❌ Error checking vacation message for server ${guild.name}: ${error.message}`);
-        }
-    }
-    
     // Start cron job for weekly point cleanup (Monday at midnight)
     cron.schedule('0 0 * * 1', async () => {
         logger.info('Starting weekly punishment point cleanup...');
@@ -141,16 +129,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 });
 
-// Handle messages (for removing vacation role after submitting request + Phase 1 images)
+// Handle messages (for Phase 1 images)
 client.on(Events.MessageCreate, async (message) => {
     // Ignore messages from bots
     if (message.author.bot) return;
-
-    try {
-        await vacationService.handleVacationMessage(message);
-    } catch (error) {
-        logger.error(`❌ Error handling vacation message: ${error.message}`);
-    }
 
     // Handle messages with images for Phase 1
     try {

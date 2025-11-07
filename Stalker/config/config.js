@@ -134,11 +134,6 @@ module.exports = {
         lotteryBan: 3
     },
 
-    // Vacation system configuration (global settings)
-    vacations: {
-        cooldownHours: 6
-    },
-
     // Multi-server configuration functions
     getServerConfig,
     isServerConfigured,

@@ -135,8 +135,8 @@ async function handlePunishCommand(interaction, config, ocrService, punishmentSe
             return;
         }
 
-        // Check vacations before confirmation (only for punish)
-        await checkVacationsBeforeConfirmation(interaction, zeroScorePlayers, attachment.url, config, punishmentService, text);
+        // Check uncertain results before confirmation
+        await checkUncertainResults(interaction, zeroScorePlayers, attachment.url, config, punishmentService, text);
 
     } catch (error) {
         logger.error('[PUNISH] ❌ /punish command error:', error);
@@ -605,19 +605,7 @@ async function handleButton(interaction, sharedState) {
         return;
     }
 
-    if (interaction.customId === 'vacation_request') {
-        // Handle "Report vacation" button
-        await sharedState.vacationService.handleVacationRequest(interaction);
-        return;
-    } else if (interaction.customId.startsWith('vacation_submit_')) {
-        // Handle "Submit vacation request" button
-        await sharedState.vacationService.handleVacationSubmit(interaction);
-        return;
-    } else if (interaction.customId.startsWith('vacation_cancel_')) {
-        // Handle "Don't open request" button
-        await sharedState.vacationService.handleVacationCancel(interaction);
-        return;
-    } else if (interaction.customId.startsWith('confirm_')) {
+    if (interaction.customId.startsWith('confirm_')) {
         const parts = interaction.customId.split('_');
         const action = parts[1];
         const confirmationId = parts[2];
@@ -759,45 +747,6 @@ async function handleButton(interaction, sharedState) {
             logger.error('[CONFIRM] ❌ Stack trace:', error.stack);
             await interaction.followUp({ content: messages.errors.unknownError, flags: MessageFlags.Ephemeral });
         }
-    } else if (interaction.customId.startsWith('vacation_')) {
-        const parts = interaction.customId.split('_');
-        const choice = parts[1]; // 'yes' or 'no'
-        const vacationId = parts[2];
-        
-        const data = confirmationData.get(vacationId);
-        
-        if (!data) {
-            await interaction.reply({ content: 'Data expired. Please try again.', flags: MessageFlags.Ephemeral });
-            return;
-        }
-        
-        if (data.originalUserId !== interaction.user.id) {
-            await interaction.reply({ content: 'Only the person who initiated the command can confirm it.', flags: MessageFlags.Ephemeral });
-            return;
-        }
-        
-        confirmationData.delete(vacationId);
-        
-        let finalPlayers = data.allPlayers;
-        
-        if (choice === 'no') {
-            // Remove vacation takers from list
-            finalPlayers = data.allPlayers.filter(player => !data.playersWithVacation.includes(player));
-            logger.info(`🏖️ Removed vacation takers from list: ${data.playersWithVacation.join(', ')}`);
-        } else {
-            logger.info(`🏖️ Vacation takers remain in list: ${data.playersWithVacation.join(', ')}`);
-        }
-        
-        if (finalPlayers.length === 0) {
-            await interaction.update({
-                content: 'No players to punish after excluding vacation takers.',
-                components: []
-            });
-            return;
-        }
-        
-        // Check uncertain results before final confirmation
-        await checkUncertainResultsWithUpdate(interaction, finalPlayers, data.imageUrl, data.config, data.punishmentService, data.ocrText);
     } else if (interaction.customId.startsWith('uncertainty_')) {
         const parts = interaction.customId.split('_');
         const choice = parts[1]; // 'yes' or 'no'
@@ -1143,74 +1092,6 @@ async function registerSlashCommands(client, config) {
     }
 }
 
-async function checkVacationsBeforeConfirmation(interaction, zeroScorePlayers, imageUrl, config, punishmentService, ocrText = '') {
-    const vacationChannelId = '1269726207633522740';
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-    
-    try {
-        logger.info(`🏖️ Starting vacation check for ${zeroScorePlayers.length} players`);
-        
-        const vacationChannel = await interaction.guild.channels.fetch(vacationChannelId);
-        if (!vacationChannel) {
-            logger.warn('Kanał urlopów nie znaleziony, pomijam sprawdzenie');
-            return await showFinalConfirmation(interaction, zeroScorePlayers, imageUrl, config, punishmentService);
-        }
-        
-        const playersWithVacation = [];
-        
-        // Check each player
-        for (const playerNick of zeroScorePlayers) {
-            // Find server member by nick
-            const members = await interaction.guild.members.fetch();
-            const member = members.find(m => m.displayName.toLowerCase() === playerNick.toLowerCase());
-            
-            if (member) {
-                // Check messages on vacation channel
-                const messages = await vacationChannel.messages.fetch({ limit: 100 });
-                const userMessages = messages.filter(msg => 
-                    msg.author.id === member.user.id && 
-                    msg.createdAt >= oneMonthAgo
-                );
-                
-                // Sprawdź czy któraś z wiadomości currently has reakcje (sprawdzenie w czasie rzeczywistym)
-                let hasActiveVacation = false;
-                for (const userMsg of userMessages.values()) {
-                    if (userMsg.reactions && userMsg.reactions.cache && userMsg.reactions.cache.size > 0) {
-                        hasActiveVacation = true;
-                        break;
-                    }
-                }
-                
-                if (hasActiveVacation) {
-                    playersWithVacation.push(playerNick);
-                    logger.info(`🏖️ ${playerNick} has active vacation (with reactions)`);
-                } else if (userMessages.size > 0) {
-                    logger.info(`🏖️ ${playerNick} had vacation, but without reactions - will be included in punishments`);
-                }
-            }
-        }
-        
-        if (playersWithVacation.length > 0) {
-            // Show question about vacation takers
-            await showVacationQuestion(interaction, playersWithVacation, zeroScorePlayers, imageUrl, config, punishmentService, ocrText);
-        } else {
-            // Check uncertain results (© at end of line) before final confirmation
-            await checkUncertainResults(interaction, zeroScorePlayers, imageUrl, config, punishmentService, ocrText);
-        }
-        
-    } catch (error) {
-        logger.error('❌ Vacation check error:', error.message);
-        logger.error('❌ Stack trace:', error.stack);
-        try {
-            await showFinalConfirmation(interaction, zeroScorePlayers, imageUrl, config, punishmentService);
-        } catch (fallbackError) {
-            logger.error('❌ Fallback confirmation error:', fallbackError.message);
-            await interaction.editReply('❌ An error occurred while sprawdzania urlopów.');
-        }
-    }
-}
-
 async function checkUncertainResults(interaction, players, imageUrl, config, punishmentService, ocrText) {
     // Check which players have © symbol at end of line
     const uncertainPlayers = [];
@@ -1375,47 +1256,6 @@ async function showUncertaintyQuestionWithUpdate(interaction, uncertainPlayers, 
     
     await interaction.update({
         embeds: [embed],
-        components: [row]
-    });
-}
-
-async function showVacationQuestion(interaction, playersWithVacation, allPlayers, imageUrl, config, punishmentService, ocrText = '') {
-    const vacationId = Date.now().toString();
-    
-    // Zapisz dane do mapy
-    confirmationData.set(vacationId, {
-        action: 'vacation_check',
-        playersWithVacation: playersWithVacation,
-        allPlayers: allPlayers,
-        imageUrl: imageUrl,
-        config: config,
-        punishmentService: punishmentService,
-        originalUserId: interaction.user.id,
-        ocrText: ocrText
-    });
-    
-    // Usuń dane po 5 minut
-    setTimeout(() => {
-        confirmationData.delete(vacationId);
-    }, 5 * 60 * 1000);
-    
-    const playersText = playersWithVacation.map(nick => `**${nick}**`).join(', ');
-    
-    const yesButton = new ButtonBuilder()
-        .setCustomId(`vacation_yes_${vacationId}`)
-        .setLabel('✅ Yes')
-        .setStyle(ButtonStyle.Success);
-    
-    const noButton = new ButtonBuilder()
-        .setCustomId(`vacation_no_${vacationId}`)
-        .setLabel('❌ No')
-        .setStyle(ButtonStyle.Danger);
-    
-    const row = new ActionRowBuilder()
-        .addComponents(yesButton, noButton);
-    
-    await interaction.editReply({
-        content: `🏖️ ${playersText} has reported vacation recently.\nShould punishment points be added anyway?`,
         components: [row]
     });
 }
