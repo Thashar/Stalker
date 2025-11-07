@@ -45,6 +45,8 @@ class OCRService {
 
             logger.info('Running OCR');
             const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim+jpn', {
+                // Load language files from /home/user/Stalker/ directory
+                langPath: path.join(__dirname, '../../'),
                 // Removed tessedit_char_whitelist to support all Unicode characters
                 // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
                 // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
@@ -92,6 +94,8 @@ class OCRService {
 
             logger.info('[PHASE1] 🔄 Running OCR on file...');
             const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim+jpn', {
+                // Load language files from /home/user/Stalker/ directory
+                langPath: path.join(__dirname, '../../'),
                 // Removed tessedit_char_whitelist to support all Unicode characters
                 // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
                 // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
