@@ -20,6 +20,8 @@ function getServerConfigOrThrow(guildId, config) {
 async function handleInteraction(interaction, sharedState, config) {
     const { client, databaseService, ocrService, punishmentService, reminderService, survivorService, phaseService } = sharedState;
 
+    logger.info(`[INTERACTION] 📨 Received: ${interaction.isCommand() ? 'command' : interaction.isButton() ? 'button' : interaction.isStringSelectMenu() ? 'menu' : 'other'} - ${interaction.commandName || interaction.customId || 'unknown'}`);
+
     try {
         if (interaction.isCommand()) {
             await handleSlashCommand(interaction, sharedState);
@@ -53,16 +55,21 @@ async function handleInteraction(interaction, sharedState, config) {
             logger.error('[INTERACTION] ❌ Cannot get error keys');
         }
 
-        const errorEmbed = new EmbedBuilder()
-            .setTitle('❌ An error occurred')
-            .setDescription(messages.errors.unknownError)
-            .setColor('#FF0000')
-            .setTimestamp();
-        
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        } else {
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        // Try to send error message to user
+        try {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ An error occurred')
+                .setDescription(messages.errors.unknownError)
+                .setColor('#FF0000')
+                .setTimestamp();
+
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            } else {
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
+        } catch (replyError) {
+            logger.error('[INTERACTION] ❌ Cannot send error message to user:', replyError?.message || 'unknown');
         }
     }
 }

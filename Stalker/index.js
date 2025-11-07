@@ -110,7 +110,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
         await handleInteraction(interaction, sharedState, config);
     } catch (error) {
-        logger.error(`❌ Error handling interaction: ${error.message}`);
+        logger.error(`❌ [INDEX] Error handling interaction:`, error?.message || 'no message');
+        logger.error(`❌ [INDEX] Stack:`, error?.stack || 'no stack');
 
         try {
             if (!interaction.replied && !interaction.deferred) {
