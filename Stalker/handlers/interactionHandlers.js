@@ -1006,126 +1006,138 @@ async function unregisterCommand(client, commandName) {
 }
 
 // Function to register slash commands
-async function registerSlashCommands(client) {
-    const commands = [
-        new SlashCommandBuilder()
-            .setName('punish')
-            .setDescription('Analyze image and find players with 0 score')
-            .addAttachmentOption(option =>
-                option.setName('image')
-                    .setDescription('Image to analyze')
-                    .setRequired(true)
-            ),
-
-        new SlashCommandBuilder()
-            .setName('remind')
-            .setDescription('Send boss reminder for players with 0 score')
-            .addAttachmentOption(option =>
-                option.setName('image')
-                    .setDescription('Image to analyze')
-                    .setRequired(true)
-            ),
-
-        new SlashCommandBuilder()
-            .setName('punishment')
-            .setDescription('Display punishment points ranking')
-            .addStringOption(option =>
-                option.setName('category')
-                    .setDescription('Ranking category')
-                    .setRequired(true)
-                    .addChoices(
-                        { name: '🎮PolskiSquad⁰🎮', value: '0' },
-                        { name: '⚡PolskiSquad¹⚡', value: '1' },
-                        { name: '💥PolskiSquad²💥', value: '2' },
-                        { name: '🔥Polski Squad🔥', value: 'main' }
-                    )
-            ),
-
-        new SlashCommandBuilder()
-            .setName('points')
-            .setDescription('Add or remove points from user')
-            .addUserOption(option =>
-                option.setName('user')
-                    .setDescription('User')
-                    .setRequired(true)
-            )
-            .addIntegerOption(option =>
-                option.setName('amount')
-                    .setDescription('Number of points (positive = add, negative = remove, empty = remove user)')
-                    .setRequired(false)
-                    .setMinValue(-20)
-                    .setMaxValue(20)
-            ),
-
-        new SlashCommandBuilder()
-            .setName('debug-roles')
-            .setDescription('Debug server roles')
-            .addStringOption(option =>
-                option.setName('category')
-                    .setDescription('Category to check')
-                    .setRequired(true)
-                    .addChoices(
-                        { name: '🎮PolskiSquad⁰🎮', value: '0' },
-                        { name: '⚡PolskiSquad¹⚡', value: '1' },
-                        { name: '💥PolskiSquad²💥', value: '2' },
-                        { name: '🔥Polski Squad🔥', value: 'main' }
-                    )
-            ),
-
-        new SlashCommandBuilder()
-            .setName('ocr-debug')
-            .setDescription('Toggle detailed OCR logging')
-            .addBooleanOption(option =>
-                option.setName('enabled')
-                    .setDescription('Enable (true) or disable (false) detailed logging')
-                    .setRequired(false)
-            ),
-
-        new SlashCommandBuilder()
-            .setName('decode')
-            .setDescription('Decode Survivor.io build code and display equipment data'),
-
-        new SlashCommandBuilder()
-            .setName('phase1')
-            .setDescription('Collect and save results of all players for Phase 1'),
-
-        new SlashCommandBuilder()
-            .setName('results')
-            .setDescription('Display results for all phases'),
-
-        new SlashCommandBuilder()
-            .setName('modify')
-            .setDescription('Modify player result')
-            .addStringOption(option =>
-                option.setName('phase')
-                    .setDescription('Select phase')
-                    .setRequired(true)
-                    .addChoices(
-                        { name: 'Phase 1', value: 'phase1' },
-                        { name: 'Phase 2', value: 'phase2' }
-                    )
-            ),
-
-        new SlashCommandBuilder()
-            .setName('add')
-            .setDescription('Add new player to existing results')
-            .addStringOption(option =>
-                option.setName('phase')
-                    .setDescription('Select phase')
-                    .setRequired(true)
-                    .addChoices(
-                        { name: 'Phase 1', value: 'phase1' },
-                        { name: 'Phase 2', value: 'phase2' }
-                    )
-            ),
-
-        new SlashCommandBuilder()
-            .setName('phase2')
-            .setDescription('Collect and save results of all players for Phase 2 (3 rounds)')
-    ];
-
+async function registerSlashCommands(client, config) {
     try {
-        await client.application.commands.set(commands);
+        logger.info('[COMMANDS] 🔄 Starting command registration for all servers...');
+
+        // Register commands per-guild (for each server)
+        for (const guild of client.guilds.cache.values()) {
+            const serverConfig = config.getServerConfig(guild.id);
+
+            if (!serverConfig) {
+                logger.warn(`[COMMANDS] ⚠️ Skipping command registration for unconfigured server: ${guild.name} (${guild.id})`);
+                continue;
+            }
+
+            // Build dynamic choices for punishment and debug-roles commands based on server config
+            const clanChoices = Object.entries(serverConfig.targetRoles).map(([clanKey, roleId]) => ({
+                name: serverConfig.roleDisplayNames[clanKey] || clanKey,
+                value: clanKey
+            }));
+
+            const commands = [
+                new SlashCommandBuilder()
+                    .setName('punish')
+                    .setDescription('Analyze image and find players with 0 score')
+                    .addAttachmentOption(option =>
+                        option.setName('image')
+                            .setDescription('Image to analyze')
+                            .setRequired(true)
+                    ),
+
+                new SlashCommandBuilder()
+                    .setName('remind')
+                    .setDescription('Send boss reminder for players with 0 score')
+                    .addAttachmentOption(option =>
+                        option.setName('image')
+                            .setDescription('Image to analyze')
+                            .setRequired(true)
+                    ),
+
+                new SlashCommandBuilder()
+                    .setName('punishment')
+                    .setDescription('Display punishment points ranking')
+                    .addStringOption(option =>
+                        option.setName('category')
+                            .setDescription('Ranking category')
+                            .setRequired(true)
+                            .addChoices(...clanChoices)
+                    ),
+
+                new SlashCommandBuilder()
+                    .setName('points')
+                    .setDescription('Add or remove points from user')
+                    .addUserOption(option =>
+                        option.setName('user')
+                            .setDescription('User')
+                            .setRequired(true)
+                    )
+                    .addIntegerOption(option =>
+                        option.setName('amount')
+                            .setDescription('Number of points (positive = add, negative = remove, empty = remove user)')
+                            .setRequired(false)
+                            .setMinValue(-20)
+                            .setMaxValue(20)
+                    ),
+
+                new SlashCommandBuilder()
+                    .setName('debug-roles')
+                    .setDescription('Debug server roles')
+                    .addStringOption(option =>
+                        option.setName('category')
+                            .setDescription('Category to check')
+                            .setRequired(true)
+                            .addChoices(...clanChoices)
+                    ),
+
+                new SlashCommandBuilder()
+                    .setName('ocr-debug')
+                    .setDescription('Toggle detailed OCR logging')
+                    .addBooleanOption(option =>
+                        option.setName('enabled')
+                            .setDescription('Enable (true) or disable (false) detailed logging')
+                            .setRequired(false)
+                    ),
+
+                new SlashCommandBuilder()
+                    .setName('decode')
+                    .setDescription('Decode Survivor.io build code and display equipment data'),
+
+                new SlashCommandBuilder()
+                    .setName('phase1')
+                    .setDescription('Collect and save results of all players for Phase 1'),
+
+                new SlashCommandBuilder()
+                    .setName('results')
+                    .setDescription('Display results for all phases'),
+
+                new SlashCommandBuilder()
+                    .setName('modify')
+                    .setDescription('Modify player result')
+                    .addStringOption(option =>
+                        option.setName('phase')
+                            .setDescription('Select phase')
+                            .setRequired(true)
+                            .addChoices(
+                                { name: 'Phase 1', value: 'phase1' },
+                                { name: 'Phase 2', value: 'phase2' }
+                            )
+                    ),
+
+                new SlashCommandBuilder()
+                    .setName('add')
+                    .setDescription('Add new player to existing results')
+                    .addStringOption(option =>
+                        option.setName('phase')
+                            .setDescription('Select phase')
+                            .setRequired(true)
+                            .addChoices(
+                                { name: 'Phase 1', value: 'phase1' },
+                                { name: 'Phase 2', value: 'phase2' }
+                            )
+                    ),
+
+                new SlashCommandBuilder()
+                    .setName('phase2')
+                    .setDescription('Collect and save results of all players for Phase 2 (3 rounds)')
+            ];
+
+            // Register commands for this specific guild
+            await guild.commands.set(commands);
+            logger.success(`[COMMANDS] ✅ Registered ${commands.length} commands for ${serverConfig.serverName || guild.name} with ${clanChoices.length} clans`);
+        }
+
+        logger.success('[COMMANDS] ✅ Command registration completed for all servers');
     } catch (error) {
         logger.error('[COMMANDS] ❌ Command registration error:', error);
     }

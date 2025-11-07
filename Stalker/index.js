@@ -66,7 +66,7 @@ client.once(Events.ClientReady, async () => {
     await messageCleanupService.init();
 
     // Register slash commands
-    await registerSlashCommands(client);
+    await registerSlashCommands(client, config);
 
     // Validate server configurations
     logger.info('📋 Validating server configurations...');

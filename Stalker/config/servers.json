@@ -11,26 +11,19 @@
     "punishmentRoleId": "role_id_punishment",
     "lotteryBanRoleId": "role_id_lottery_ban",
     "targetRoles": {
-      "0": "role_id_squad_0",
-      "1": "role_id_squad_1",
-      "2": "role_id_squad_2",
-      "main": "role_id_squad_main"
+      "0": "1218828210914201691",
+      "1": "1381590501349654559"
     },
     "roleDisplayNames": {
-      "0": "🎮Squad⁰🎮",
-      "1": "⚡Squad¹⚡",
-      "2": "💥Squad²💥",
-      "main": "🔥Main Squad🔥"
+      "0": "St☆r",
+      "1": "Vøid"
     },
     "warningChannels": {
-      "role_id_squad_0": "channel_id_warnings_0",
-      "role_id_squad_1": "channel_id_warnings_1",
-      "role_id_squad_2": "channel_id_warnings_2",
-      "role_id_squad_main": "channel_id_warnings_main"
+      "1218828210914201691": "1436347958659518526",
+      "1381590501349654559": "1436347958659518526"
     },
     "allowedDecodeChannels": [
-      "channel_id_decode_1",
-      "channel_id_decode_2"
+      "1436347958659518526"
     ],
     "vacationChannelId": "channel_id_vacation",
     "vacationRequestRoleId": "role_id_vacation_request"
