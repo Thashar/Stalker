@@ -47,9 +47,6 @@ class OCRService {
             const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim+jpn', {
                 // Load language files from /home/user/Stalker/ directory
                 langPath: path.join(__dirname, '../../'),
-                // Tesseract parameters for better table recognition
-                tessedit_pageseg_mode: '6',      // PSM 6: Uniform block of text (good for tables)
-                tessedit_ocr_engine_mode: '1',   // OEM 1: LSTM neural net mode (best accuracy)
                 // Removed tessedit_char_whitelist to support all Unicode characters
                 // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
                 // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
@@ -99,9 +96,6 @@ class OCRService {
             const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim+jpn', {
                 // Load language files from /home/user/Stalker/ directory
                 langPath: path.join(__dirname, '../../'),
-                // Tesseract parameters for better table recognition
-                tessedit_pageseg_mode: '6',      // PSM 6: Uniform block of text (good for tables)
-                tessedit_ocr_engine_mode: '1',   // OEM 1: LSTM neural net mode (best accuracy)
                 // Removed tessedit_char_whitelist to support all Unicode characters
                 // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
                 // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
@@ -144,23 +138,29 @@ class OCRService {
             // Zaawansowane przetwarzanie obrazu dla czarnego tekstu
             const processedBuffer = await sharp(imageBuffer)
                 .greyscale()
-                // 1. Zwiększanie rozdzielczości x4 dla lepszej jakości małego tekstu
+                // 1. Zwiększanie rozdzielczości x2 (nowe)
                 .resize(newWidth, newHeight, { kernel: 'lanczos3' })
-                // 2. Median filter - redukcja szumów przed innymi operacjami
-                .median(this.config.ocr.imageProcessing.median)
-                // 3. Gamma correction dla wyrównania jasności
+                // 2. Gamma correction (nowe)
                 .gamma(this.config.ocr.imageProcessing.gamma)
-                // 4. Normalizacja dla pełnego wykorzystania zakresu tonalnego
-                .normalize()
-                // 5. INWERSJA OBRAZU - biały tekst staje się czarnym
-                .negate()
-                // 6. Mocniejszy kontrast po inwersji dla ostrzejszego tekstu
-                .linear(this.config.ocr.imageProcessing.contrast, -100)
-                // 7. Lekkie rozmycie dla wygładzenia artefaktów
+                // 3. Median filter - redukcja szumów (nowe)
+                .median(this.config.ocr.imageProcessing.median)
+                // 4. Blur - rozmycie krawędzi (nowe)
                 .blur(this.config.ocr.imageProcessing.blur)
-                // 8. Wyostrzenie krawędzi tekstu
+                // 5. Normalizacja dla pełnego wykorzystania zakresu tonalnego (zachowane)
+                .normalize()
+                // 6. INWERSJA OBRAZU - biały tekst staje się czarnym (zachowane)
+                .negate()
+                // 7. Mocniejszy kontrast po inwersji dla ostrzejszego tekstu (zachowane)
+                .linear(this.config.ocr.imageProcessing.contrast, -100)
+                // 8. Wyostrzenie krawędzi tekstu (zachowane)
                 .sharpen({ sigma: 0.5, m1: 0, m2: 2, x1: 2, y2: 10 })
-                // 9. Finalna binaryzacja - wszystkie odcienie szarości → białe, tekst → czarny
+                // 9. Operacja morfologiczna - zamykanie luk w literach (zachowane)
+                .convolve({
+                    width: 3,
+                    height: 3,
+                    kernel: [0, -1, 0, -1, 5, -1, 0, -1, 0]
+                })
+                // 10. Finalna binaryzacja - wszystkie odcienie szarości → białe, tekst → czarny (zachowane)
                 .threshold(this.config.ocr.imageProcessing.whiteThreshold, { greyscale: false })
                 .png();
             

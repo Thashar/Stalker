@@ -102,13 +102,13 @@ module.exports = {
 
         // Image processing settings
         imageProcessing: {
-            whiteThreshold: 180,  // Obniżono z 200 - mniej agresywna binaryzacja
-            contrast: 2.5,        // Zwiększono z 2.0 - mocniejszy kontrast
+            whiteThreshold: 200,
+            contrast: 2.0,
             brightness: 20,
-            gamma: 1.8,           // Obniżono z 3.0 - mniej przesadzona korekcja gamma
-            median: 3,            // Zwiększono z 2 - lepsze usuwanie szumów
-            blur: 0.3,            // Obniżono z 0.8 - mniej rozmazywania tekstu!
-            upscale: 4.0          // Zwiększono z 3.0 - więcej szczegółów dla OCR
+            gamma: 3.0,
+            median: 2,
+            blur: 0.8,
+            upscale: 3.0
         },
 
         // Processed images configuration
