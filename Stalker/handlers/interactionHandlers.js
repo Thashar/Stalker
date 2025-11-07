@@ -959,6 +959,10 @@ async function registerSlashCommands(client, config) {
     try {
         logger.info('[COMMANDS] 🔄 Starting command registration for all servers...');
 
+        // Clear all global commands first (we use guild-specific commands only)
+        await client.application.commands.set([]);
+        logger.info('[COMMANDS] 🗑️ Cleared global commands (using guild-specific only)');
+
         // Register commands per-guild (for each server)
         for (const guild of client.guilds.cache.values()) {
             const serverConfig = config.getServerConfig(guild.id);

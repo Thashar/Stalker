@@ -39,6 +39,10 @@ class MessageCleanupService {
 
     async saveScheduledMessages() {
         try {
+            // Ensure data directory exists
+            const dataDir = path.dirname(this.messagesFile);
+            await fs.mkdir(dataDir, { recursive: true });
+
             await fs.writeFile(this.messagesFile, JSON.stringify(this.scheduledMessages, null, 2), 'utf-8');
         } catch (error) {
             this.logger.error('[MESSAGE_CLEANUP] ❌ Błąd zapisu zaplanowanych usunięć:', error.message);
