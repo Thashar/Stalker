@@ -22,8 +22,7 @@ class OCRService {
                 await fs.mkdir(this.processedDir, { recursive: true });
             }
             logger.info('[OCR] ✅ OCR service initialized');
-            logger.info('[OCR] 🌍 Language support: Polish + English + Chinese + Japanese');
-            logger.info('[OCR] 🔤 Unicode support: Special characters, superscripts/subscripts, CJK');
+            logger.info('[OCR] 🌍 Language support: Polish + English');
         } catch (error) {
             logger.error('[OCR] ❌ OCR initialization error:', error);
         }
@@ -44,14 +43,9 @@ class OCRService {
             processedBuffer = await this.processImageWithSharp(buffer);
 
             logger.info('Running OCR');
-            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim+jpn', {
+            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng', {
                 // Load language files from /home/user/Stalker/ directory
-                langPath: path.join(__dirname, '../../'),
-                // Removed tessedit_char_whitelist to support all Unicode characters
-                // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
-                // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
-                // Chinese characters: 约瑟夫
-                // Japanese characters: Hiragana (あいうえお), Katakana (アイウエオ), Kanji (日本語)
+                langPath: path.join(__dirname, '../../')
             });
 
             logger.info('🔤 Text read from OCR:');
@@ -93,14 +87,9 @@ class OCRService {
             processedBuffer = await this.processImageWithSharp(imageBuffer);
 
             logger.info('[PHASE1] 🔄 Running OCR on file...');
-            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng+chi_sim+jpn', {
+            const { data: { text } } = await Tesseract.recognize(processedBuffer, 'pol+eng', {
                 // Load language files from /home/user/Stalker/ directory
-                langPath: path.join(__dirname, '../../'),
-                // Removed tessedit_char_whitelist to support all Unicode characters
-                // This allows recognition of special characters: ☆, ☪, ➤, ㅐ, ㋡, ∈, ⚝, Ⓐ
-                // superscripts/subscripts: ᴾᴴ, ᴹ, ₛₚᵢca, ᴳᶻᴸ, ⁰
-                // Chinese characters: 约瑟夫
-                // Japanese characters: Hiragana (あいうえお), Katakana (アイウエオ), Kanji (日本語)
+                langPath: path.join(__dirname, '../../')
             });
 
             logger.info('[PHASE1] 🔤 Text read from OCR:');
